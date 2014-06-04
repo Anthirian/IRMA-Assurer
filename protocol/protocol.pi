@@ -1,0 +1,183 @@
+(* The channel *)
+free c.
+
+(* Identifiers and nonces *)
+free T, S.
+
+private free SK_s, SK_t, SK_c, key, attributes.
+
+(* Public key derivation *)
+fun pubkey/1.
+
+(* Cryptographic functions *)
+fun encrypt/2.
+fun sencrypt/2.
+
+reduc decrypt(encrypt(x, pubkey(y)), y) = x.
+reduc sdecrypt(sencrypt(x, y), y) = x.
+
+(* Signing functions *)
+fun sign/2.
+reduc check(sign(x, y), pubkey(y)) = x.
+
+(* Hash functions *)
+fun hmac/2.
+
+(* Queries *)
+not SK_s.
+not SK_t.
+not SK_c.
+not key.
+not Data.
+not attributes.
+
+query attacker: attributes.
+
+
+
+
+(* Processes *)
+let Tablet =
+	(* Store the received public key, not knowing whose it is *)
+	in (c, PK_x);
+	(* Read out the data on the passport (not part of this protocol) *)
+	new Data;
+	
+	
+	(* TODO: Set up session with mutual authentication and generate shared key *)
+	(* Diffie-Hellman Key Exchange? *)
+	
+	
+	
+	(* Generate HMAC from chip data and session key *)
+	let h = hmac(Data, key) in
+		(* Generate nonce *)
+		new nA;
+		(* Build encrypted message *)
+		let enc_msg = encrypt((Data, T, S, nA), key) in
+			(* Append the HMAC to the encrypted message *)
+			let whole_msg = (enc_msg, h) in
+				(* Send message *)
+				out(c, whole_msg);
+				
+				(* Wait for response *)
+				in(c, resp);
+				
+				(* Split up response and verify the HMAC *)
+				let (body, =hmac(body, key)) = resp in
+					(* Decrypt the response body, verify that T, S, and nA are correct and finally store the signed attributes *)
+					let (attributes, =T, =S, =nA) = sdecrypt(body, key) in
+						event end(T, S, attributes).
+
+let Server = 
+	(* TODO: Set up session with mutual authentication and generate shared key *)
+	(* See Google Scholar saved articles *)
+	(* Diffie-Hellman Key Exchange? *)
+	
+	
+	(* Receive sign-and-verify request from Tablet *)
+	in(c, message_from_tablet);
+	(* Split up message into content and hmac, and verify integrity *)
+	let (message_content, =hmac(message_content, key)) = message_from_tablet in
+		(* Check if the correct participants are included (T and S) and store the nonce *)
+		let (user_specific_data, =T, =S, n) = sdecrypt(message_content, key) in
+			(* Server checks user_specific_data internally *)
+			(* For now this protocol simply assumes the data is valid *)
+			
+			(* Sign the data *)
+			let signed_data = sign(user_specific_data, key) in
+				(* Generate HMAC from signed data *)
+				let hm = hmac(signed_data, key) in
+					(* Create new message content from signed data, T, S and the nonce *)
+					let content = (signed_data, T, S, n) in
+						(* Append the HMAC to the content *)
+						let response = (content, hm) in
+							(* Send the response message *)
+							out(c, response).
+
+process
+	(* Create a public key for both parties *)
+	let PK_s = pubkey(SK_s) in
+		let PK_t = pubkey(SK_t) in
+			(* Distribute the public keys *)
+			out(c, PK_s);
+			(* Use second channel to send PK_t to Server?      out(d, PK_t);     *)
+			(* Start both processes *)
+			((!Tablet) | (!Server))
+
+
+
+
+
+
+
+
+
+(* 
+
+Assets
+----------
+- tablet
+- server
+- burger
+- IRMA card
+- ID (paspoort / ID-kaart / rijbewijs)
+
+
+Basic course of events
+-------------------------
+1. Burger houdt paspoort tegen tablet
+2. Tablet leest chipdata uit
++------------------------------------------------------------------------+
+| 3. Tablet stuurt chipdata versleuteld naar server                      |
+| 4. Server controleert chipdata met gegevens uit interne database       |
+| 5. Server ondertekent chipdata                                         |
+| 6. Server stuurt ondertekende chipdata versleuteld terug naar tablet   |
++------------------------------------------------------------------------+
+7. Burger houdt IRMA card tegen tablet
+8. Tablet schrijft ondertekende chipdata naar IRMA card als individuele attributen
+
+
+Key		crypto type		parties involved
+-----------------------------------------
+K_pt	symmetric		Passport, Tablet
+K_tc	symmetric		Tablet, Card
+K_ts	symmetric		Tablet, Server
+PK_s	assymmetric		Server (public)
+SK_s	assymmetric		Server (secret)
+SK_t	assymmetric		Tablet (public)
+PK_t	assymmetric		Tablet (secret)
+SK_c	assymmetric		Card (public)
+PK_c	assymmetric		Card (secret)
+
+Protocol
+---------------------------
+( T <--> S		Start sessie en verzin sleutel )
+
+	- T genereert HMAC
+	- T versleutelt bericht met sessiesleutel
+
+3. T -> S			{data, T, S, nonce}K_ts, HMAC*
+
+	- S checkt HMAC
+	- S checkt T en S
+	- S checkt counter/nonce
+	- S checkt data
+	
+	- S signt data
+	- S genereert HMAC
+	- S versleutelt bericht met sessiesleutel
+																
+6. S -> T			{[{attr_1}SK_s, {attr_2}SK_s, ...], T, S, nonce}K_ts, HMAC*
+
+	- T checkt HMAC
+	- T checkt T en S
+	- T checkt counter/nonce
+	
+	- T verwerkt data tot attributen
+
+
+* Sterkte van HMAC hangt af van de sterkte van de hashfunctie, de lengte van de hash zelf en van de lengte en sterkte van de gebruikte sleutel (K_ts?).
+
+
+*)
