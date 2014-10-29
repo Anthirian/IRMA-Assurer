@@ -40,7 +40,8 @@ query attacker: attributes.
 query attacker: key.
 (* 
 	Belangrijkste geval van misbruik: 
-	Notaris verliest tablet --> Eventuele onterechte aan IRMA kaart toegevoegde attributen moeten ongeldig verklaard worden.	
+	Notaris verliest tablet --> Eventuele onterechte aan IRMA kaart toegevoegde attributen moeten ongeldig verklaard worden.
+	Wellicht een extra protocol voor ontwerpen.
 *)
 
 
@@ -127,15 +128,9 @@ process
 			(* Start both processes *)
 			((!Tablet) | (!Server))
 
-
-
-
-
-
-
-
-
 (* 
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 
 Assets
 ----------
@@ -176,7 +171,7 @@ Protocol
 ---------------------------
 ( T <--> S		Start sessie en verzin sleutel )
 ( DHKE waarbij de Tablet elke keer dezelfde waarde kiest. Hiermee kun je het ook als authenticatiemethode gebruiken. De server moet dan onthouden welke tablet welke sleutel heeft gebruikt. )
-( Zie slides Bart eerstejaars cursus security )
+( Zie slides Bart Jacobs eerstejaars cursus security )
 
 (*	Signed Diffie-Hellman
 
