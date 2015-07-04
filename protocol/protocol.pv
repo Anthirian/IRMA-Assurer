@@ -1,9 +1,10 @@
 (* The channel *)
 free c.
 
-(* Identifiers and nonces *)
+(* Names *)
 free T, S.
 
+(* Keys and application data *)
 private free key, attributes.
 
 (* Public key derivation *)
@@ -38,14 +39,12 @@ not attributes.
 
 query attacker: attributes.
 query attacker: key.
+
 (* 
-	Belangrijkste geval van misbruik: 
-	Notaris verliest tablet --> Eventuele onterechte aan IRMA kaart toegevoegde attributen moeten ongeldig verklaard worden.
-	Wellicht een extra protocol voor ontwerpen.
+	Queries maken voor authenticity, confidentiality, accountability, auditability.
+	
+	Gebruik maken van TLS 1.2 i.c.m. ECC levert Perfect Forward Secrecy op. Dit betekent verder dat deze tunnel zorgt voor privacy en integrity. Hiervoor hoeven geen queries te worden opgenomen (?).
 *)
-
-
-
 
 (* Processes *)
 let Tablet =
@@ -54,7 +53,7 @@ let Tablet =
 	(* Read out the data on the passport (not part of this protocol) *)
 	new ppData;
 	
-	(* Start of DHKE *)
+	(* Start of DH *)
 	
 	(* Generate fresh nonce *)
 	new n0;
@@ -69,7 +68,7 @@ let Tablet =
 		(* Ensure the received public key belongs to the server *)
 			if PK_x = PK_s then
 				
-				(* End of DHKE *)
+				(* End of DH *)
 				
 				(* Send encrypted message and its HMAC *)
 				new nA;
@@ -86,7 +85,7 @@ let Tablet =
 							event end(T, S, attributes).
 
 let Server = 
-	(* Start of DHKE *)
+	(* Start of DH *)
 	
 	(* Listen for authentication request *)
 	in(c, (m0, PK_y));
@@ -99,7 +98,7 @@ let Server =
 			(* Sign e^n1 and send it, along with your public key *)
 			out(c, sign(g(n1), SK_s));
 			
-			(* End of DHKE *)
+			(* End of DH *)
 			
 			(* Receive sign-and-verify request from Tablet *)
 			in(c, message_from_tablet);
@@ -111,7 +110,7 @@ let Server =
 					let (user_specific_data, =T, =S, n) = sdecrypt(message_content, key) in
 						(* Server checks user_specific_data internally *)
 						
-						(* For now this protocol simply assumes the data is valid *)
+						(* We assume the data is valid, because checking it is not in the scope of this protocol *)
 						
 						(* Send the response message *)
 						out(c, ((sign(user_specific_data, key), T, S, n), hmac(sign(user_specific_data, key), key))).
@@ -128,67 +127,19 @@ process
 			(* Start both processes *)
 			((!Tablet) | (!Server))
 
-(* 
----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
-Assets
-----------
-- tablet
-- server
-- burger
-- IRMA card
-- ID (paspoort / ID-kaart / rijbewijs)
-
-
-Basic course of events
--------------------------
-1. Burger houdt paspoort tegen tablet
-2. Tablet leest chipdata uit
-+------------------------------------------------------------------------+
-| 3. Tablet stuurt chipdata versleuteld naar server                      |
-| 4. Server controleert chipdata met gegevens uit interne database       |
-| 5. Server ondertekent chipdata                                         |
-| 6. Server stuurt ondertekende chipdata versleuteld terug naar tablet   |
-+------------------------------------------------------------------------+
-7. Burger houdt IRMA card tegen tablet
-8. Tablet schrijft ondertekende chipdata naar IRMA card als individuele attributen
-
-
-Key		crypto type		parties involved
------------------------------------------
-K_pt	symmetric		Passport, Tablet
-K_tc	symmetric		Tablet, Card
-K_ts	symmetric		Tablet, Server
-PK_s	assymmetric		Server (public)
-SK_s	assymmetric		Server (secret)
-SK_t	assymmetric		Tablet (public)
-PK_t	assymmetric		Tablet (secret)
-SK_c	assymmetric		Card (public)
-PK_c	assymmetric		Card (secret)
-
-Protocol
+(* Application Protocol
 ---------------------------
-( T <--> S		Start sessie en verzin sleutel )
-( DHKE waarbij de Tablet elke keer dezelfde waarde kiest. Hiermee kun je het ook als authenticatiemethode gebruiken. De server moet dan onthouden welke tablet welke sleutel heeft gebruikt. )
-( Zie slides Bart Jacobs eerstejaars cursus security )
 
-(*	Signed Diffie-Hellman
+	- C controleert integriteit paspoortdata
+	- C genereert HMAC
+	- C versleutelt bericht met sessiesleutel
 
-	A -> B : { e^n0 }skA, pkA    (n0 fresh)
-	B -> A : { e^n1 }skB         (n1 fresh)
-	A and B compute the key as k = (e^n0)^n1 = (e^n1)^n0
-	A -> B : { s }k
- 
-
-	- T controleert integriteit ID data
-	- T genereert HMAC
-	- T versleutelt bericht met sessiesleutel
-
-3. T -> S			{data, T, S, nonce}K_ts, HMAC*
+3. C -> S			{data, C, S, nonce}K_cs, HMAC
 
 	- S checkt HMAC
-	- S checkt T en S
+	- S checkt C en S
 	- S checkt counter/nonce
 	- S checkt ID data
 	
@@ -196,16 +147,70 @@ Protocol
 	- S genereert HMAC
 	- S versleutelt bericht met sessiesleutel
 																
-6. S -> T			{[{attr_1}SK_s, {attr_2}SK_s, ...], T, S, nonce}K_ts, HMAC*
+6. S -> C			{[{attr_1}SK_s, {attr_2}SK_s, ...], C, S, nonce}K_ts, HMAC
 
-	- T checkt HMAC
-	- T checkt T en S
-	- T checkt counter/nonce
+	- C checkt HMAC
+	- C checkt C en S
+	- C checkt counter/nonce
 	
-	- T verwerkt data tot attributen
+	- C verwerkt data tot attributen
+*)
+
+(* TLS in Alice Bob notation (niet mutually authenticated, want client stuurt nog geen certificaat)
+http://www.ai.rug.nl/mas/finishedprojects/2011/TLS/hermsencomputerservices.nl/mas/visualisation.html
 
 
-* Sterkte van HMAC hangt af van de sterkte van de hashfunctie, de lengte van de hash zelf en van de lengte en sterkte van de gebruikte sleutel (K_ts?).
+ClientHello
+1.	C -> S: nC
+2.	S -> C: N_S, CertChain_S, g, n, g^y, {N_C, N_S, g, n, g^y}pk_S, Root CAs
+3.	C -> S: CertChain_C, g^x, {all_previous_messages}pk_C, ChangeCipherSpec, MAC_SK("client finished", all_previous_messages)													
+4.	S -> C: ChangeCipherSpec, MAC_SK("server finished", all_previous_messages)
+
+SK = #(g^xy, "master secret", N_C, N_S)
+
+
+The TLS Handshake Protocol involves the following steps:
+
+   -  Exchange hello messages to agree on algorithms, exchange random
+      values, and check for session resumption.
+
+   -  Exchange the necessary cryptographic parameters to allow the
+      client and server to agree on a premaster secret.
+
+   -  Exchange certificates and cryptographic information to allow the
+      client and server to authenticate themselves.
+
+   -  Generate a master secret from the premaster secret and exchanged
+      random values.
+
+   -  Provide security parameters to the record layer.
+
+   -  Allow the client and server to verify that their peer has
+      calculated the same security parameters and that the handshake
+      occurred without tampering by an attacker.
+
+	  
+				Figure 1.  Message flow for a full handshake
+      Client                                               Server
+
+      ClientHello                  -------->
+                                                      ServerHello
+                                                     Certificate*
+                                               ServerKeyExchange*
+                                              CertificateRequest*
+                                   <--------      ServerHelloDone
+      Certificate*
+      ClientKeyExchange
+      CertificateVerify*
+      [ChangeCipherSpec]
+      Finished                     -------->
+                                               [ChangeCipherSpec]
+                                   <--------             Finished
+      Application Data             <------->     Application Data
+
+	  
+	  
+
 
 
 *)

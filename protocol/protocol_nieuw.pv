@@ -1,0 +1,134 @@
+free C, S.
+free net.
+
+free serverCert.
+
+(* Diffie-Hellman functions *)
+fun f/2.
+fun g/1.
+equation f(x, g(y)) = f(y, g(x)).
+
+(* Cryptographic functions *)
+fun encrypt/2.
+fun sencrypt/2.
+reduc decrypt(encrypt(x, pk(y)), y) = x.
+reduc sdecrypt(sencrypt(x, y), y) = x.
+
+(* Signing functions *)
+fun sign/2.
+reduc getmess(sign(m, k)) = m.
+reduc checksign(sign(m, k), pk(k)) = m.
+
+(* Hash functions *)
+fun hmac/2.
+
+(* The Server waits for a TLS handshake from a Client *)
+let Server =
+	(* Start of TLS handshake *)
+	
+	(* Receiving ClientHello *)
+	in(c, ClientHello);	let (A, Nc, SupportedOptions) = ClientHello in
+	
+	(* Server generates a fresh nonce Ns *)
+	new Ns;
+	
+	(* Server picks a cipher suite and compression method from SupportedOptions *)
+	new SelectedOptions;
+	
+	(* Sending ServerHello *)
+	let ServerHello = (S, Ns, SelectedOptions) in out(c, ServerHello);
+	
+	(* Sending server certificate chain *)
+	let ServerCertificate = serverCert in out(net, ServerCertificate);
+	
+	out(c, ServerKeyExchange);
+	out(c, ServerHelloDone);
+	
+	in(c, ClientCertificate);
+	in(c, ClientKeyExchange);
+    in(c, CertificateVerify);
+    in(c, ClientChangeCipherSpec);
+	in(c, ClientFinished);
+	
+	out(c, ServerChangeCipherSpec);
+	out(c, ServerFinished);
+	(* End of TLS handshake *)	
+	
+	(* Start of application data *)
+	
+	(* C -> S: {data, C, S, nonce}K_cs, HMAC *)
+	
+	(* Receive sign-and-verify request from Tablet *)
+	in(c, message_from_tablet);
+	(* Split up message into content and hmac, and verify integrity *)
+	let (message_content, hmac_tablet) = message_from_tablet in
+		if hmac_tablet = hmac(message_content, key) then
+			(* Check if the correct participants are included (C and S) and store the nonce *)
+			event begin(C, S, attributes);
+			let (user_specific_data, =C, =S, n) = sdecrypt(message_content, key) in
+				(* Server checks user_specific_data internally *)
+				
+				(* We assume the data is valid, because checking it is not in the scope of this protocol *)
+				
+				(* S -> C: {[{attr_1}SK_s, {attr_2}SK_s, ...], C, S, nonce}K_ts, HMAC *)
+				(* Send the response message *)
+				out(c, ((sign(user_specific_data, key), C, S, n), hmac(sign(user_specific_data, key), key))).
+				(* End of application data *)
+
+(* The Client starts the TLS handshake *)
+let Client =
+	(* Start of TLS handshake *)
+	
+	(* Client generates a fresh nonce Nc *)
+	new Nc;
+	
+	(* Supported cipher suites and compression methods *)
+	new SupportedOptions;
+	
+	(* Sending ClientHello *)
+	let ClientHello = (C, Nc, SupportedOptions) in out(c, ClientHello);
+	
+	(* Receiving ServerHello *)
+	in(c, ServerHello); let (S, Ns, SelectedOptions) = ServerHello in
+	
+	(* Receiving server certificate chain *)
+	in(c, ServerCertificate); let () = ServerCertificate in
+	
+	
+	in(c, ServerKeyExchange);
+	in(c, ServerHelloDone); 
+	
+	out(c, ClientCertificate);
+	out(c, ClientKeyExchange);
+    out(c, CertificateVerify);
+    out(c, ClientChangeCipherSpec);
+	out(c, ClientFinished);
+	
+	in(c, ServerChangeCipherSpec);
+	in(c, ServerFinished);	
+	(* End of TLS handshake *)
+	
+	(* Start of application data *)
+	
+	(* C -> S: {data, C, S, nonce}K_cs, HMAC *)
+	
+	(* Send encrypted message and its HMAC *)
+	new nA;
+	out(c, (encrypt((ppData, C, S, nA), key), hmac(ppData, key)));
+	
+	(* Wait for response *)
+	
+	(* S -> C: {[{attr_1}SK_s, {attr_2}SK_s, ...], C, S, nonce}K_ts, HMAC *)
+	in(c, resp);
+	
+	(* Split up response and verify the HMAC *)
+	let (body, hmac_server) = resp in
+		if hmac_server = hmac(body, key) then
+			(* Decrypt the response body, verify that C, S, and nA are correct and finally store the signed attributes *)
+			let (attributes, =C, =S, =nA) = sdecrypt(body, key) in
+				event end(C, S, attributes).
+				(* End of application data *)
+				
+process
+	(* There are multiple clients, but only one server *)
+	(!Client) | Server

@@ -1,0 +1,4 @@
+Initialisatie
+---------------------------------
+1. Systeembeheerder installeert app op nieuwe tablet
+2. Systeembeheerder genereert certificaat op tablet en ondertekent dit met key van server om een certificate chain te maken
