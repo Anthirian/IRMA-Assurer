@@ -14,9 +14,15 @@ fun sencrypt/2.
 reduc decrypt(encrypt(x, pk(y)), y) = x.
 reduc sdecrypt(sencrypt(x, y), y) = x.
 
+(* Symmetric key construction *)
+fun generateSymmetricKey/3.
+
 (* Signing functions *)
 fun sign/2.
 reduc getmess(sign(m, k)) = m.
+
+(* Pseudo−random−number function *)
+fun PRF/1.
 
 (* Certificates *)
 private fun cert/2.
@@ -49,13 +55,13 @@ let Server =
 	(* Generate Diffie-Hellman Key Exchange parameters *)
 	new g;
 	new n;
-	new gy;
+	new y;
 	
 	(* Sign the parameters *)
-	let DH_PARAM_SIG = sign((g, n, gy), SKs) in
+	let DH_PARAM_SIG = sign((g, n, g(y)), SKs) in
 	
 	(* Sending server DH key parameters *)
-	let ServerKeyExchange = (g, n, gy, DH_PARAM_SIG) in out(c, ServerKeyExchange);
+	let ServerKeyExchange = (g, n, g(y), DH_PARAM_SIG) in out(c, ServerKeyExchange);
 	
 	(* Create a list of acceptable certificate types and CAs *)
 	new acceptable_certificate_types;
@@ -77,11 +83,25 @@ let Server =
 	let PKc = verify(clientCert, A) in
     in(c, CertificateVerify); let cvHash = getmess(CertificateVerify, PKc) in	
 	
-    in(c, ClientChangeCipherSpec);
+	(* Compute pre-master secret (g^xy) *)
+	let PMS = f(gx, g(y)) in
+	
+	(* Compute master secret, technically also requires "master secret" to be part of the arguments for hashing *)
+	let MSs = PRF(PMS, Nc, Ns) in
+	
+    in(c, =ClientChangeCipherSpec);
+	
+	(* Receiving ClientFinished *)
 	in(c, ClientFinished);
 	
+	(* Verify ClientFinished *)
+	
+	(* Sending ServerChangeCipherSpec, indicating a switch to the encryption negotiated above. Essentially just 1 byte *) 	
 	out(c, ServerChangeCipherSpec);
+	
+	(* Sending ServerFinished, using the newly negotiated encryption *)
 	out(c, ServerFinished);
+	
 	(* End of TLS handshake *)	
 	
 	(* Start of application data *)
@@ -139,17 +159,30 @@ let Client =
 	let ClientCertificate = clientCert in out(c, ClientCertificate);
 	
 	(* Sending client DH key parameters *)
-	new gx;
-	let gx = ClientKeyExchange in out(c, ClientKeyExchange);
+	new x;
+	let g(x) = ClientKeyExchange in out(c, ClientKeyExchange);
 	
 	(* Sending CertificateVerify *)
 	let CertificateVerify = sign(hash((ClientHello, ServerHello, ServerCertificate, ServerKeyExchange, ClientCertificateRequest, ServerHelloDone, ClientCertificate)), SKc) in out(c, CertificateVerify);
 	
+	(* Compute the pre-master secret (g^xy) *)
+	let PMS = f(gy, g(x)) in
+	
+	(* Compute the master secret, technically also requires "master secret" to be part of the arguments for hashing *)
+	let MSc = PRF(PMS, Nc, Ns) in
+	
+	(* Sending ClientChangeCipherSpec, indicating a switch to the encryption negotiated above. Essentially just 1 byte *)
     out(c, ClientChangeCipherSpec);
 	
-	out(c, ClientFinished);
+	(* Sending ClientFinished, using the newly negotiated encryption *)
+	let ClientFinished = hash((ClientHello, ServerHello, ServerCertificate, ServerKeyExchange, ClientCertificateRequest, ServerHelloDone, ClientCertificate, ClientChangeCipherSpec)) in
+	let sessionKey = generateSymmetricKey(Na, Nb, MSc) in
+	out(c, encrypt(ClientFinished, sessionKey);
 	
-	in(c, ServerChangeCipherSpec);
+	(* Receiving ServerChangeCipherSpec, indicating a switch to the encryption negotiated above. Essentially just 1 byte *)
+	in(c, =ServerChangeCipherSpec);
+	
+	(* Receiving ServerFinished *)
 	in(c, ServerFinished);	
 	(* End of TLS handshake *)
 	

@@ -197,7 +197,7 @@ let server =
 	let M = PRF((PMS, Na, Nb)) in
 	
 	(* B calculates Finished *)
-	let Finished = hash ((CH, SH, SC, CC, CKE, CV, M)) in
+	let Finished = hash((CH, SH, SC, CC, CKE, CV, M)) in
 	
 	(** server authentication **)
 	event beginServerAuth(A, B, PMS);
