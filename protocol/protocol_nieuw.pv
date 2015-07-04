@@ -50,7 +50,7 @@ let Server =
 	let ServerHello = (S, Ns, SelectedOptions) in out(c, ServerHello);
 	
 	(* Sending server certificate chain *)
-	out(net, serverCert);
+	let ServerCertificate = serverCert in out(c, ServerCertificate);
 	
 	(* Generate Diffie-Hellman Key Exchange parameters *)
 	new g;
@@ -74,7 +74,7 @@ let Server =
 	out(c, ServerHelloDone);
 	
 	(* Receiving client certificate chain *)	
-	in(c, clientCert);
+	in(c, ClientCertificate); let clientCert = ClientCertificate in
 	
 	(* Receiving client DH key parameters *)
 	in(c, ClientKeyExchange); let gx = ClientKeyExchange in
@@ -89,18 +89,21 @@ let Server =
 	(* Compute master secret, technically also requires "master secret" to be part of the arguments for hashing *)
 	let MSs = PRF(PMS, Nc, Ns) in
 	
+	(* Receiving ClientChangeCipherSpec *)
     in(c, =ClientChangeCipherSpec);
 	
-	(* Receiving ClientFinished *)
-	in(c, ClientFinished);
+	(* Compute hash and session key *)
+	let Finished = hash((ClientHello, ServerHello, ServerCertificate, ServerKeyExchange, ClientCertificateRequest, ServerHelloDone, ClientCertificate, ClientKeyExchange, CertificateVerify, ClientChangeCipherSpec)) in
+	let sessionKey = generateSymmetricKey(Na, Nb, MSs) in
 	
-	(* Verify ClientFinished *)
+	(* Receiving and verifying ClientFinished *)
+	in(c, ClientFinished); let =Finished =decrypt(ClientFinished, sessionKey) in
 	
 	(* Sending ServerChangeCipherSpec, indicating a switch to the encryption negotiated above. Essentially just 1 byte *) 	
 	out(c, ServerChangeCipherSpec);
 	
 	(* Sending ServerFinished, using the newly negotiated encryption *)
-	out(c, ServerFinished);
+	out(c, Finished);
 	
 	(* End of TLS handshake *)	
 	
@@ -174,16 +177,19 @@ let Client =
 	(* Sending ClientChangeCipherSpec, indicating a switch to the encryption negotiated above. Essentially just 1 byte *)
     out(c, ClientChangeCipherSpec);
 	
-	(* Sending ClientFinished, using the newly negotiated encryption *)
-	let ClientFinished = hash((ClientHello, ServerHello, ServerCertificate, ServerKeyExchange, ClientCertificateRequest, ServerHelloDone, ClientCertificate, ClientChangeCipherSpec)) in
-	let sessionKey = generateSymmetricKey(Na, Nb, MSc) in
-	out(c, encrypt(ClientFinished, sessionKey);
+	(* Compute hash and session key *)
+	let Finished = hash((ClientHello, ServerHello, ServerCertificate, ServerKeyExchange, ClientCertificateRequest, ServerHelloDone, ClientCertificate, ClientKeyExchange, CertificateVerify, ClientChangeCipherSpec)) in
+	let sessionKey = generateSymmetricKey(Na, Nb, MSs) in
+	
+	(* Sending ClientFinished *)
+	out(c, encrypt(Finished, sessionKey);
 	
 	(* Receiving ServerChangeCipherSpec, indicating a switch to the encryption negotiated above. Essentially just 1 byte *)
 	in(c, =ServerChangeCipherSpec);
 	
-	(* Receiving ServerFinished *)
-	in(c, ServerFinished);	
+	(* Receiving and verifying ServerFinished *)
+	in(c, ServerFinished); let =Finished =decrypt(ServerFinished, sessionKey) in
+	
 	(* End of TLS handshake *)
 	
 	(* Start of application data *)
