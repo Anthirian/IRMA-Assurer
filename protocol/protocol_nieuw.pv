@@ -1,7 +1,7 @@
 free C, S.
 free c.
 
-free serverCert.
+free serverCert, clientCert.
 
 (* Diffie-Hellman functions *)
 fun f/2.
@@ -57,10 +57,20 @@ let Server =
 	(* Sending server DH key parameters *)
 	let ServerKeyExchange = (g, n, gy, DH_PARAM_SIG) in out(c, ServerKeyExchange);
 	
+	(* Create a list of acceptable certificate types and CAs *)
+	new acceptable_certificate_types;
+	new acceptable_certificate_authorities;
 	
+	(* Sending ClientCertificateRequest *)
+	let ClientCertificateRequest = (acceptable_certificate_types, acceptable_certificate_authorities) in out(c, ClientCertificateRequest);
+	
+	(* Sending ServerHello Done *)
 	out(c, ServerHelloDone);
 	
-	in(c, ClientCertificate);
+	(* Receiving client certificate chain *)	
+	in(c, clientCert);
+	
+	
 	in(c, ClientKeyExchange);
     in(c, CertificateVerify);
     in(c, ClientChangeCipherSpec);
@@ -115,9 +125,16 @@ let Client =
 	let PKs = verify(serverCert, S) in
 	let (=g, =n, =gy) = getmess(DH_PARAM_SIG, PKs) in
 	
-	in(c, ServerHelloDone);
+	(* Receiving ClientCertificateRequest *)
+	in(c, ClientCertificateRequest); let (acceptable_certificate_types, acceptable_certificate_authorities) = ClientCertificateRequest in
 	
-	out(c, ClientCertificate);
+	(* Receiving ServerHelloDone *)
+	in(c, =ServerHelloDone);
+	
+	(* Sending client certificate chain *)
+	out(c, clientCert);
+	
+	
 	out(c, ClientKeyExchange);
     out(c, CertificateVerify);
     out(c, ClientChangeCipherSpec);
