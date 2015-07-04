@@ -1,5 +1,6 @@
 (*************************************************************************
  *** The Transport Layer Security (TLS) Handshake Protocol             ***
+ ***        RSA encrypted Pre-Master Secret                            ***
  ***                                                                   ***
  *** Carst Tankink (0569954), Pim Vullers (0575766)                    ***
  *************************************************************************)

@@ -70,9 +70,13 @@ let Server =
 	(* Receiving client certificate chain *)	
 	in(c, clientCert);
 	
+	(* Receiving client DH key parameters *)
+	in(c, ClientKeyExchange); let gx = ClientKeyExchange in
 	
-	in(c, ClientKeyExchange);
-    in(c, CertificateVerify);
+	(* Receiving CertificateVerify *)
+	let PKc = verify(clientCert, A) in
+    in(c, CertificateVerify); let cvHash = getmess(CertificateVerify, PKc) in	
+	
     in(c, ClientChangeCipherSpec);
 	in(c, ClientFinished);
 	
@@ -118,7 +122,7 @@ let Client =
 	in(c, ServerHello); let (S, Ns, SelectedOptions) = ServerHello in
 	
 	(* Receiving server certificate chain *)
-	in(c, serverCert);
+	in(c, ServerCertificate); let serverCert = ServerCertificate in
 	
 	(* Receiving Server DH Key Parameters and checking integrity *)
 	in(c, ServerKeyExchange); let (g, n, gy, DH_PARAM_SIG) = ServerKeyExchange in
@@ -132,12 +136,17 @@ let Client =
 	in(c, =ServerHelloDone);
 	
 	(* Sending client certificate chain *)
-	out(c, clientCert);
+	let ClientCertificate = clientCert in out(c, ClientCertificate);
 	
+	(* Sending client DH key parameters *)
+	new gx;
+	let gx = ClientKeyExchange in out(c, ClientKeyExchange);
 	
-	out(c, ClientKeyExchange);
-    out(c, CertificateVerify);
+	(* Sending CertificateVerify *)
+	let CertificateVerify = sign(hash((ClientHello, ServerHello, ServerCertificate, ServerKeyExchange, ClientCertificateRequest, ServerHelloDone, ClientCertificate)), SKc) in out(c, CertificateVerify);
+	
     out(c, ClientChangeCipherSpec);
+	
 	out(c, ClientFinished);
 	
 	in(c, ServerChangeCipherSpec);
