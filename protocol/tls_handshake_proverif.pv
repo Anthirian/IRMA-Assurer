@@ -79,7 +79,7 @@ query attacker: serverFinished.
  **************************************************************************)
 let client =
 	(** Initial agent data from a trusted channel **)
-	in(initialClientData, (A, signKey , clientCert));
+	in(initialClientData, (A, signKey, clientCert));
 	
 	(** Replication to model arbitrary sessions **)
 	!
@@ -103,7 +103,7 @@ let client =
 	in(net, SH); let (=ServerHello, Nb, =Sid, Pb) = SH in
 	
 	(* B −> A : ServerCertificate *)
-	in(net , SC); let (=ServerCertificate, serverCert) = SC in
+	in(net, SC); let (=ServerCertificate, serverCert) = SC in
 	
 	(* A −> B: ClientCertificate *)
 	let CC = (ClientCertificate, clientCert) in out(net, CC);
@@ -184,7 +184,7 @@ let server =
 	in(net, CV); let (=CertificateVerify, cvHash) = unsign(CV, unsignKey) in
 	
 	(* B verifies client signature *)
-	let =cvHash = hash ((Nb, B, PMS)) in
+	let =cvHash = hash((Nb, B, PMS)) in
 	
 	(** end client authentication **)
 	event endClientAuth(A, B, PMS);

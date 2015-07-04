@@ -1,5 +1,5 @@
 free C, S.
-free net.
+free c.
 
 free serverCert.
 
@@ -17,7 +17,12 @@ reduc sdecrypt(sencrypt(x, y), y) = x.
 (* Signing functions *)
 fun sign/2.
 reduc getmess(sign(m, k)) = m.
-reduc checksign(sign(m, k), pk(k)) = m.
+
+(* Certificates *)
+private fun cert/2.
+
+(* If cert(x, y) establishes x as owner of key y, y is returned, i.e. this retrieves the public key from the server's certificate *)
+reduc verify(cert(x, y), x) = y.
 
 (* Hash functions *)
 fun hmac/2.
@@ -39,9 +44,20 @@ let Server =
 	let ServerHello = (S, Ns, SelectedOptions) in out(c, ServerHello);
 	
 	(* Sending server certificate chain *)
-	let ServerCertificate = serverCert in out(net, ServerCertificate);
+	out(net, serverCert);
 	
-	out(c, ServerKeyExchange);
+	(* Generate Diffie-Hellman Key Exchange parameters *)
+	new g;
+	new n;
+	new gy;
+	
+	(* Sign the parameters *)
+	let DH_PARAM_SIG = sign((g, n, gy), SKs) in
+	
+	(* Sending server DH key parameters *)
+	let ServerKeyExchange = (g, n, gy, DH_PARAM_SIG) in out(c, ServerKeyExchange);
+	
+	
 	out(c, ServerHelloDone);
 	
 	in(c, ClientCertificate);
@@ -92,11 +108,14 @@ let Client =
 	in(c, ServerHello); let (S, Ns, SelectedOptions) = ServerHello in
 	
 	(* Receiving server certificate chain *)
-	in(c, ServerCertificate); let () = ServerCertificate in
+	in(c, serverCert);
 	
+	(* Receiving Server DH Key Parameters and checking integrity *)
+	in(c, ServerKeyExchange); let (g, n, gy, DH_PARAM_SIG) = ServerKeyExchange in
+	let PKs = verify(serverCert, S) in
+	let (=g, =n, =gy) = getmess(DH_PARAM_SIG, PKs) in
 	
-	in(c, ServerKeyExchange);
-	in(c, ServerHelloDone); 
+	in(c, ServerHelloDone);
 	
 	out(c, ClientCertificate);
 	out(c, ClientKeyExchange);
