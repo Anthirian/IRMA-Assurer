@@ -1,0 +1,46 @@
+\documentclass[a4paper, oneside]{scrartcl}
+
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{a4wide}
+%\usepackage{parskip}
+\parskip=7pt
+\parindent=0pt
+%\usepackage{apacite}
+%\usepackage{minted}
+%\usepackage{listings}
+\usepackage[utf8]{inputenc}
+\usepackage[hyphens]{url}
+\usepackage[colorlinks, linkcolor=black, urlcolor=black, citecolor=black, pdfpagemode=UseNone, pdfstartview=]{hyperref}
+
+\author{Geert Smelt\thanks{\href{mailto:gasmelt@student.ru.nl}{\nolinkurl{gasmelt@student.ru.nl}}}}
+\title{IRMA Assurer}
+\subtitle{Securely storing identity document chip data onto IRMA cards}
+\date{\today}
+\dedication{Kerckhoffs Institute\\Supervisor: Bart Jacobs}
+
+\begin{document}
+
+\maketitle
+%\vspace{2.5cm}
+
+\begin{abstract}
+\noindent \ldots
+\end{abstract}
+
+\input{introduction}
+\input{theory}
+\input{goals}
+\input{protocols}
+\input{assumptions}
+\input{proof}
+\input{conclusion}
+
+\nocite{*}
+\bibliographystyle{plain}
+\bibliography{references}
+
+\appendix
+\input{javacode}
+
+\end{document}
