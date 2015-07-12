@@ -9,13 +9,12 @@ To summarize the protocol should offer:
 \begin{itemize}
   \item Authentication of client to server
   \item Authentication of server to client
-  \item Secrecy of passport data sent between server and client
+  \item Integrity of passport data sent between server and client
   \item Confidentiality of passport data sent between server and client
-  \item Secrecy of attribute data sent between server and client
+  \item Integrity of attribute data sent between server and client
   \item Confidentiality of attribute data sent between server and client
-  \item Defense in depth
-  \item Perfect forward secrecy
-  \item Resistance against replaying of attribute data
+  \item Perfect forward secrecy of all communication between server and client
+  \item Resistance against replaying of attribute data (\textsc{TODO: Deels afgevangen door policies: tablets worden in kluis bewaard, etc.})
 \end{itemize}
 
 \subsection{Attack scenarios}
@@ -31,9 +30,8 @@ This section describes possible attack scenarios with respect to the goals descr
   \item An attacker replays the sending of passport data to obtain another identical set of attribute data. This attack effectively facilitates the cloning of cards, provided the server does not constrain the number of times attributes are given out.
   \item An attacker uses different attributes from different people to authenticate. This attack allows combining attribute data to achieve the required combination for authentication. 
   \item \textsc{TODO: Side-channel attacks?}
-  \item \textsc{TODO: Dolev-Yao Model?}
   \item \textsc{TODO: Denial of Service?}
-  \item \textsc{TODO: Authenticated Encryption?}
+  \item \textsc{Authenticated Encryption niet expliciet, maar wordt effectief wel aan voldaan. Om het niet te moeilijk te maken heeft Bart gezegd het niet expliciet te doen.}
 \end{itemize}
 
 \subsubsection{Perfect Forward Secrecy}
@@ -49,6 +47,6 @@ To summarize the previous sections, the protocol should satisfy the following cr
   \item Accountability
   \item Confidentiality
   \item Integrity
-  \item Availability
+  \item \scriptsize Availability
 \end{itemize}
 
