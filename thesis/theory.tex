@@ -6,7 +6,7 @@ Here we explain the background of the IRMA proofs.
 Beschrijven hoe de basic course of events verloopt, en welke voorwaarden daarbij gelden. Denk aan het veilig opbergen van tablet in kluis, wellicht pincode op tablet, etc.
 
 \subsection{Passport}
-The passport is a travel document issued by a country's government that certifies the identity and nationality of its holder for the purpose of international travel~\cite{passportdefinition}. A biometric passport is an upgraded version that contains biometric information that can be used to authenticate the identity of travelers. This information is stored on an embedded chip that can be read using contactless smart card technology. Passports that feature such a chip generally feature the symbol shown in figure~\ref{fig:biometricslogo} on the cover.
+The passport is a travel document issued by a country's government that certifies the identity and nationality of its holder for the purpose of international travel~\cite{passportdefinition}. A biometric passport is an upgraded version that contains biometric information that can be used to authenticate the identity of travelers. This information is stored on an embedded chip that can be read using contactless smart card technology. Passports that feature such a chip generally feature the symbol shown in figure~\ref{fig:biometricslogo} on the cover. The data stored on the passport chip needs to be protected from modification, cloning, eavesdropping, etc. For this purpose several protection mechanisms have been implemented. Each of these mechanisms exist alongside each other and protect against different types of attacks. This section describes the various security protocols supported by passports, i.e. PA, BAC, SM and AA as specified by ICAO in~\cite{icao} as well as EAC as specified in~\cite{bsi}. 
 
 \begin{figure}[htb]
 	\centering
@@ -15,24 +15,44 @@ The passport is a travel document issued by a country's government that certifie
 	\label{fig:biometricslogo}
 \end{figure}
 
-The data stored on the passport chip needs to be protected from modification, cloning, etc. For this purpose several protection mechanisms have been implemented. Each of these mechanisms exist alongside each other and protect against different types of attacks. The most common mechanism is Basic Access Control (BAC). 
+\subsubsection{Passive Authentication}
+Passive Authentication (PA) is not actually a protocol. It simply indicates that the chip makes use of digital signatures of its data. PA involves the terminal reading the data and verifying both its hash and signature. PA is the only `protocol' that is mandatory; all other protocols are optional~\cite{mostowski2010electronic}.
 
-\ldots
+\subsubsection{Basic Access Control}
+Consider the case where a passport does not feature an RF chip. In this scenario privacy of the passport data is achieved by being able to keep the passport closed so nobody can read its data. With the addition of the RF chip this would no longer hold. Anyone with an RF reader (often called a terminal) is able to read the data on the chip if it is in close proximity. The solution to this problem is to protect the data with a key that the reader needs to know before being allowed to read the data. This is how the Basic Access Control (BAC) protocol works. BAC is essentially not required to be used by ePassports, but is strongly recommended. The key used for BAC is derived from three properties of the passport.
+\begin{enumerate}
+	\item The document number (usually 9 digits)
+  \item The date of birth (formatted YYMMDD in Dutch passports)
+  \item The document expiry date (formatted YYMMDD in Dutch passports)
+\end{enumerate}
+These three properties are part of the Machine Readable Zone (MRZ) that is printed in monospace at the bottom of the passport (see figure~\ref{fig:dutchpassport}). Also part of the MRZ is the Burger Service Nummer (BSN), which uniquely identifies a Dutch citizen, but this number is not used for the key derivation for BAC. Combining the aforementioned properties eventually results in the key with which the reader may access the chip's data. Keep in mind the MRZ is not visible while the passport is closed and cannot be obtained anywhere else. The only method of transferring the MRZ to the reader is for the reader to either utilize optical character recognition (OCR) software or for the passport holder to manually enter the information into the reader. In either case the MRZ is transmitted via an out of band channel. After the key is used for authenticating the reader to the passport, all further communication is performed via an encrypted channel~\cite{icao}.
 
-\textsc{Copied from Wikipedia: \url{https://en.wikipedia.org/wiki/Biometric_passport}} 
+In some countries, e.g. the US, the chip is shielded by a very thin metal mesh that is integrated into the cover of the passport. This prevents readers from accessing the chip without having the passport holder open his or her passport first.[citation needed]~\footnote{\url{https://www.newscientist.com/article/dn8227-metal-shields-and-encryption-for-us-passports/}}.
 
-Biometric passports are equipped with protection mechanisms to avoid and/or detect attacks:
+\textsc{Supplemental Access Control (SAC) was introduced by ICAO in 2009 for addressing BAC weaknesses. It was introduced as a supplement to BAC (for keeping compatibility), but will replace it in the future.} It is mandatory from December 2014 onwards\footnote{\url{http://www.securitydocumentworld.com/creo_files/upload/client_files/moving_to_the_third_generation_of_electronic_passports_october_20111.pdf}}
 
-\begin{itemize}
-	\item Non-traceable chip characteristics. Random chip identifiers reply to each request with a different chip number. This prevents tracing of passport chips. Using random identification numbers is optional.
-  \item Basic Access Control (BAC). BAC protects the communication channel between the chip and the reader by encrypting transmitted information. Before data can be read from a chip, the reader needs to provide a key which is derived from the Machine Readable Zone: the date of birth, the date of expiry and the document number. If BAC is used, an attacker cannot (easily) eavesdrop transferred information without knowing the correct key. Using BAC is optional.
-  \item Passive Authentication (PA). PA is aimed at identifying modification of passport chip data. The chip contains a file (SOD) that stores hash values of all files stored in the chip (picture, fingerprint, etc.) and a digital signature of these hashes. The digital signature is made using a document signing key which itself is signed by a country signing key. If a file in the chip (e.g. the picture) is changed, this can be detected since the hash value is incorrect. Readers need access to all used public country keys to check whether the digital signature is generated by a trusted country. Using PA is mandatory.[citation needed] According to a September 2011 United States Central Intelligence Agency document released by Wikileaks in December 2014, "Although falsified e-passports will not have the correct digital signature, inspectors may not detect the fraud if the passports are from countries that do not participate in the International Civil Aviation Organization’s Public Key Directory (ICAO PKD). Only 15 of over 60 e-passport-issuing countries belong to the PKD program, as of December 2010"[4]
-  \item Active Authentication (AA). AA prevents cloning of passport chips. The chip contains a private key that cannot be read or copied, but its existence can easily be proven. Using AA is optional.
-  \item Extended Access Control (EAC). EAC adds functionality to check the authenticity of both the chip (chip authentication) and the reader (terminal authentication). Furthermore it uses stronger encryption than BAC. EAC is typically used to protect fingerprints and iris scans. Using EAC is optional. In the European Union, using EAC is mandatory for all documents issued starting 28 June 2009.[citation needed]
-  \item Supplemental Access Control (SAC) was introduced by ICAO in 2009 for addressing BAC weaknesses. It was introduced as a supplement to BAC (for keeping compatibility), but will replace it in the future.
-  \item Shielding the chip. This prevents unauthorized reading. Some countries – including at least the US – have integrated a very thin metal mesh into the passport's cover to act as a shield when the passport cover is closed.[5] The use of shielding is optional.
-\end{itemize}
+\begin{figure}[htb]
+	\centering
+		\includegraphics[width=0.50\textwidth]{images/dutchpassport.png}
+	\caption{Example of a Dutch passport including a Machine Readable Zone}
+	\label{fig:dutchpassport}
+\end{figure}
 
+\subsubsection{Secure Messaging}
+The Secure Messaging (SM) protocol is used to protect the integrity and confidentiality of the communication between terminal and chip. Essentially the protocol sets up a secure channel, the key for which is agreed upon during the BAC protocol. When also performing EAC, the CA part will refresh the key (see below).
+
+\subsubsection{Extended Access Control}
+Starting in 2006 many countries added their citizens' finger prints and iris scans to the chip, by definition turning it into a biometric passport. The biometric data is a lot more sensitive than the data protected by BAC, meaning it needs to be protected by stronger cryptography. For this the Extended Access Control (EAC) protocol was developed and added to the second generation of ePassports in 2009\footnote{\url{http://www.securitydocumentworld.com/creo_files/upload/client_files/moving_to_the_third_generation_of_electronic_passports_october_20111.pdf}}. Any reader that has successfully performed BAC may subsequently perform EAC in order to obtain access to the finger print and iris of the passport holder. EAC is implemented in all new generation EU passports.
+
+EAC consists of two protocols, Chip Authentication (CA) and Terminal Authentication (TA), both relying on a public key infrastructure (PKI) in which certificates are issued to the passport as well as other governments for verification purposes. The CA protocol is used for the terminal to authenticate the chip. It is based on a secret key agreement and a successful run of the protocol provides both parties with a new key for SM. The TA protocol is used for authenticating the terminal to the chip and possibly increase access rights. It actively verifies certificates. After both protocols have finished, mutual authentication is achieved and a new secure channel is created.
+
+
+\subsubsection{Active Authentication}
+\textsc{Active Authentication (AA). AA prevents cloning of passport chips. The chip contains a private key that cannot be read or copied, but its existence can easily be proven. Using AA is optional.}
+
+Active Authentication (AA) is a challenge-response protocol that proves the authenticity of the chip, verifying the chip has not been cloned. The chip contains a private key, of which the chip proves knowledge during AA, and a certificate for this key as signed by the passport issuing country. This protocol is redundant when the passport also supports EAC, since the CA protocol also (implicitly) proves knowledge of this private key. This means that AA is only useful in cases where passports do not support EAC, but still wish to verify knowledge of the private key.
+
+\textsc{Text below copied from Wikipedia: \url{https://en.wikipedia.org/wiki/Biometric_passport}} 
 
 Since the introduction of biometric passports several attacks have been presented and demonstrated:
 

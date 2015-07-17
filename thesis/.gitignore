@@ -7,7 +7,7 @@
 *.fls
 *.log
 *.out
-*.pdf
+report.pdf
 *.synctex.gz
 *.tcp
 *.tex~
