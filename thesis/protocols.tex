@@ -40,7 +40,7 @@ The details about the underlying cryptographic functions selected for the IRMA A
 
 
 \subsubsection{TLS record}
-The record protocol handles the sending and receiving of TLS related messages. It forms the basis of the TLS protocol. When sending, it will split the data in blocks, optionally compress it, apply a MAC, encrypt the data, add a fragment header and finally send the data over TCP port 443. When receiving, it will decrypt the data, verify the MAC, optionally decompress, defragment and finally deliver the data to the upper layer.
+The record protocol handles the sending and receiving of TLS related messages. It forms the basis of the TLS protocol. When sending, it will split the data in blocks, optionally compress it, apply a MAC, encrypt the data, add a fragment header and finally send the data over TCP port 443. When receiving, it will decrypt the data, verify the MAC, optionally decompress, defragment and finally deliver the data to the upper layer. Essentially this protocol forms the secure channel between client and server.
 
 This byte ordering for multi-byte values is the commonplace network byte order or big-endian format.~\cite{tls1.2}
 
@@ -58,4 +58,152 @@ TLS 1.2 was defined in RFC 5246 in August 2008. It is based on the earlier TLS 1
 \end{itemize}
 
 \subsection{IRMA Assurer}
-The IRMA Assurer protocol described below makes use of TLS 1.2 as described above. This means both the server and the tablets will verify each other's certificates and agree upon a session key. Once a secure channel has been successfully set up, we have achieved privacy and data integrity of all communication over this channel.~\cite{tls1.2} 
+The IRMA Assurer protocol makes use of TLS 1.2 as described above. This means both the server and the tablets will verify each other's certificates and agree upon a session key. Once a secure channel has been successfully set up, we have achieved privacy and data integrity of all communication over this channel.~\cite{tls1.2} 
+
+\subsection{Assumptions}
+\label{sec:assumptions}
+\subsubsection{Operational}
+\begin{itemize}
+  \item Het systeem bestaat uit één server en meerdere tablets in een ster-structuur. De tablets communiceren niet onderling, maar enkel met de server.
+  \item Tablets worden verspreid over het land met daarop een app die met NFC paspoorten en IRMA kaarten uitleest.
+  \item Communicatie tussen IRMA kaart en chiplezer verloopt nog onversleuteld.
+  \item De tablets sturen paspoortdata naar de server ter controle
+  \item De server controleert de juistheid van de paspoortdata (buiten scope?) en genereert bijpassende attributen. 
+  \item De attributen worden met de enige key (een apart keypair, horend bij de `issuer') ondertekend, zodat iedereen ze kan controleren op echtheid.
+  \item De attributen worden door de tablet op de IRMA kaart geplaatst, maar eigenlijk willen we liever dat de tablet geen vinger in de pap heeft en alleen dient als doorgeefluik voor attributen.
+  \item De attributen worden na plaatsing op de IRMA kaart automatisch verwijderd van de tablets.
+  \item De paspoortgegevens worden na omzetting in attributen automatisch door de server verwijderd.
+  \item De paspoortgegevens worden na plaatsing van de attributen automatisch verwijderd van de tablets.
+  \item Server en client moeten beide PA, BAC, SM en AA doen. EAC is niet mogelijk, want hiervoor hebben we de juiste key niet. We kunnen dit niet overlaten aan de client, want in geval van misbruik moet de server het laatste woord hebben.
+  \item TLS session resuming is niet toegestaan. Sessienummers in packets worden door de server genegeerd. Reden hiervoor is dat het PFS verzwakt: \url{https://timtaubert.de/blog/2014/11/the-sad-state-of-server-side-tls-session-resumption-implementations/}
+\end{itemize}
+
+\subsubsection{Cryptographic}
+\sffamily
+\begin{itemize}
+  \item ``In principle, any public key encryption scheme can be used to build a key exchange with PFS by using the encryption scheme with ephemeral public and private keys.''~\cite{PFS}
+  \item We laten de server een certificaat maken voor de authenticiteit van de tablet, die wordt geïnstalleerd op de tablet zodra hij wordt geprepareerd. Bijkomend voordeel is dat een tablet onbruikbaar gemaakt kan worden via Certificate Revocation Lists. Hiermee bereiken we authenticatie van tablet aan server.
+  \item We installeren de public key van de server op de tablets bij preparatie. Tablets sturen een challenge versleuteld met deze key naar de server. De server geeft het juiste antwoord op de challenge en is op die manier geauthenticeerd aan de tablet.
+  \item \textsc{Gebruiken we hetzelfde certificaat voor de TLS handshake als voor authenticatie aan de server?}
+  
+  \item The IRMA Assurer protocol makes use of TCP for its transport layer protocol. The main reason for this is that we require the packets to be delivered without packet loss. In other words, we favor TCP over UDP for its high reliability. Other arguments for choosing TCP include its data flow control and packet reordering capabilities.
+  \item Uit de certificaten kan geen DH parameters worden afgeleid of afgelezen. Dat kan alleen als je geen PFS wil.
+\end{itemize}
+
+\rmfamily
+Here we discuss the cryptographic options selected with regard to keys, certificates, key agreement, ciphers, (H)MAC, etc.
+
+As explained above we have chosen TLS 1.2 for its resistance against publicly known feasible attacks, as well as for its Perfect Forward Secrecy capabilities. ``From a practical point of view this requires that the key generation for the encryption scheme be fast enough. For most applications this disqualifies, for example, the use of ephemeral RSA public key encryption for achieving PFS, since the latter requires the generation of two long prime numbers for each exchange, a relatively costly operation.''~\cite{PFS} For this reason we have selected the Diffie-Hellman Key Exchange protocol.
+
+Since the Assurer protocol is to be used only on newly developed hardware and software it is safe to use the newest cryptography; there should not be any compatibility issues. Mozilla lists the following as the best choice for modern clients in their documentation on server-side TLS,\footnote{\url{https://wiki.mozilla.org/Security/Server_Side_TLS}} ordered from most recommended to least recommended:
+
+\begin{description}
+	\item [Ciphersuite] \texttt{ECDHE-RSA-AES128-GCM-SHA256, ECDHE-ECDSA-AES128-GCM-SHA256, \\
+ECDHE-RSA-AES256-GCM-SHA384, ECDHE-ECDSA-AES256-GCM-SHA384, \\
+DHE-RSA-AES128-GCM-SHA256, DHE-DSS-AES128-GCM-SHA256, kEDH+AESGCM, \\
+ECDHE-RSA-AES128-SHA256, ECDHE-ECDSA-AES128-SHA256, \\
+ECDHE-RSA-AES128-SHA, ECDHE-ECDSA-AES128-SHA, ECDHE-RSA-AES256-SHA384, \\
+ECDHE-ECDSA-AES256-SHA384, ECDHE-RSA-AES256-SHA, ECDHE-ECDSA-AES256-SHA, \\
+DHE-RSA-AES128-SHA256, DHE-RSA-AES128-SHA, DHE-DSS-AES128-SHA256, \\
+DHE-RSA-AES256-SHA256, DHE-DSS-AES256-SHA, DHE-RSA-AES256-SHA, \\
+!aNULL, !eNULL, !EXPORT, !DES, !RC4, !3DES, !MD5, !PSK}
+  \item [Versions] \texttt{TLSv1.1, TLSv1.2}
+  \item [RSA key size] \texttt{2048}
+  \item [DH Parameter size] \texttt{2048}
+  \item [Elliptic curves] \texttt{secp256r1, secp384r1, secp521r1} (at a minimum)
+  \item [Certificate signature] \texttt{SHA-256}
+  \item [HSTS] \texttt{max-age=15724800}
+\end{description}
+
+Note that this is the optimal configuration for Mozilla's own servers providing HTTPS connections, which explains the mention of HSTS. For the Assurer protocol we are only interested in cipher suites supported in TLS 1.2, while making use of elliptic curves and Diffie-Hellman, meaning we can safely ignore anything that is unrelated. Cross-referencing this list of cipher suites with the list of elliptic curve and TLS 1.2 cipher suites described by the OpenSSL documentation\footnote{\url{https://www.openssl.org/docs/apps/ciphers.html}} yields the following list of cipher suites supported by the IRMA Assurer protocol, in descending order of priority, named following IANA guidelines. This naming convention differs from the one used by Mozilla, who use OpenSSL guidelines, but is in correspondence with the RFC documents on TLS. The blank lines indicate Mozilla favors either a non-elliptic curve or a TLS 1.2 incompatible cipher suite over the ones that follow. 
+
+\begin{verbatim}
+TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+
+TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256
+
+TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384
+TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384
+\end{verbatim}
+
+There are many reasons for this particular ordering. We highlight the main reasons below. 
+
+\begin{itemize}
+  \item ECDHE+AESGCM ciphers are selected first. These are TLS 1.2 ciphers and not widely supported at the moment. No known attack currently targets these ciphers.
+  \item PFS ciphersuites are preferred, with ECDHE first, then DHE.
+	\item ECDHE provides faster handshakes than DHE ([[4]], [[5]]).
+  \item AES 128 is preferred to AES 256, because it provides good security, is really fast, and seems to be more resistant to timing attacks.
+  \item SHA256 is favored over SHA384. This appears to be mainly for interoperability purposes.
+\end{itemize}
+
+``GCM is an Authenticated Encryption (AE) algorithm designed to provide both data authenticity (integrity) and confidentiality.'' [citation needed]
+
+For more information about the reasons behind this ordering please see Mozilla's documentation page.
+
+\subsubsection{DH parameters}
+``Unfortunately, some widely used clients lack support for ECDHE and must then rely on DHE to provide perfect forward secrecy:
+
+\begin{itemize}
+	\item Android $< 3.0.0$
+  \item Java $< 7$
+  \item OpenSSL $< 1.0.0$
+\end{itemize}
+
+Note that schannel on Windows XP technically support DHE, but only with DSA keys, making it unusable on the internet in practice.
+
+Java 6 and 7 do not support Diffie-Hellman parameters larger than 1024 bits. If your server expects to receive connections from java 6 clients and wants to enable PFS, it must provide a DHE parameter of 1024 bits.'' --- Mozilla
+
+``In order to lower the burden of system administrators, several servers provide pre-computed DH groups. Unfortunately, the [[1] report showed that it is very likely that a state-level adversary may have broken the most widely used 1024-bit DH group, Oakley group 2, standardized in [[2]].
+
+For this reason, the use of this group is considered unsafe and you should either:
+
+use a larger group, with a minimum size of 2048-bit, as recommended in the intermediate and modern configurations ;
+keep using a 1024-bit DH group if you need to, but move away from Oakley group 2 and use a custom DH group instead, generated via the openssl dhparam 1024 command ;
+disable DHE altogether, relying on ECHDE for PFS if you don't support legacy clients lacking ECDHE support.
+It is currently assumed that standardized 2048 bits DH groups provide sufficient security to resist factorization attacks. However, the careful administrator should generate a random DH group instead of using a standardized one when setting up a new server, as advised by the [[3]] authors.'' --- Mozilla
+
+CBC ciphers can be attacked with the Lucky Thirteen attack\footnote{\url{http://www.isg.rhul.ac.uk/tls/Lucky13.html}} if the library is not written carefully to eliminate timing side channels. This attack requires multiple sessions and is possibly detectable due to the low volume of traffic in the IRMA Assurer protocol.
+
+\paragraph{Logjam attack on weak Diffie-Hellman}
+``The Logjam attack describes methods of attacking TLS servers supporting DHE export ciphers, and with weak ($\leq$ 1024 bit) Diffie Hellman groups. Modern TLS must use DH parameters of 2048 bits and above, or only use ECDHE. The modern configuration in this guide provide configurations that are not impacted by this issue. The intermediate and old configurations are impacted, and administrators are encourage to use DH parameters of 2048 bits wherever possible.
+
+more: \url{https://weakdh.org}'' --- Mozilla
+
+Since we only make use of ECDHE the Assurer protocol is not susceptible to the Logjam attack.
+
+
+\subsubsection{Certificates}
+\begin{itemize}
+	\item Each client posesses one certificate, signed by the server, with which it may authenticate to the server.
+  \item 
+\end{itemize}
+
+
+
+\subsubsection{Keys}
+Het gebruik van TLS 1.2 betekent dat beide partijen na de TLS handshake beschikken over een sessiesleutel. Het is hierdoor niet nodig om een extra keypair te hebben voor encryptie. We gebruiken ephemeral keys in combinatie met elliptic curve Diffie-Hellman. 
+
+\paragraph{Server}
+\begin{itemize}
+	\item Heeft (enige) sleutel voor ondertekenen van attributen (issuer keypair)
+  \item Heeft certificaat voor TLS (eindpunt van certificaatketting) plus bijbehorend keypair
+  \item Heeft signing keypair voor uitgifte certificaten voor tablets en kan hiermee ook verifiëren
+  \item Heeft public key van elke client
+\end{itemize}
+
+\paragraph{Client}
+\begin{itemize}
+	\item Heeft één keypair en bijbehorend certificaat, ondertekend door server bij uitgifte tablet
+  \item Heeft public key van de server
+\end{itemize}
+
+\subsubsection{Aandachtspunten}
+\begin{itemize}
+  \item 
+\end{itemize}
+
+
