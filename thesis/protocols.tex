@@ -4,7 +4,7 @@ The IRMA Assurer protocol is an application level protocol. It is designed to ru
 \subsection{Transport Layer Security}
 The Transport Layer Security (TLS) protocol is a protocol operating on the presentation layer of the OSI Reference Model.~\cite{osi} It is a protocol that secures the connection between two parties across an insecure channel, ensuring secrecy.~\cite{tls1.2} It also has the possibility for authentication based on certificates. TLS is commonly used in web browsers to encrypt HTTP into HTTPS traffic, but it is capable of protecting any TCP connection.~\cite{lecture}
 
-
+TLS 1.2 was defined in RFC 5246 in August 2008. It is based on the earlier TLS 1.1 specification. It was further refined in RFC 6176 in March 2011 removing their backward compatibility with SSL such that TLS sessions will never negotiate the use of Secure Sockets Layer (SSL) version 2.0.
 
 TLS vulnerable to handshake renegotiation attack, solved by RFC 5746~\cite{lecture}
 
@@ -44,18 +44,9 @@ The record protocol handles the sending and receiving of TLS related messages. I
 
 This byte ordering for multi-byte values is the commonplace network byte order or big-endian format.~\cite{tls1.2}
 
-\subsubsection{TLS 1.2 changes}
-TLS 1.2 was defined in RFC 5246 in August 2008. It is based on the earlier TLS 1.1 specification. Major differences include:
 
-\begin{itemize}
-	\item The MD5-SHA-1 combination in the pseudorandom function (PRF) was replaced with SHA-256, with an option to use cipher suite specified PRFs.
-  \item The MD5-SHA-1 combination in the finished message hash was replaced with SHA-256, with an option to use cipher suite specific hash algorithms. However the size of the hash in the finished message is still truncated to 96 bits.
-  \item The MD5-SHA-1 combination in the digitally signed element was replaced with a single hash negotiated during handshake, which defaults to SHA-1.
-  \item Enhancement in the client's and server's ability to specify which hash and signature algorithms they will accept.
-  \item Expansion of support for authenticated encryption ciphers, used mainly for Galois / Counter Mode (GCM) and CCM mode of Advanced Encryption Standard encryption.
-  \item TLS Extensions definition and Advanced Encryption Standard cipher suites were added.
-  \item All TLS versions were further refined in RFC 6176 in March 2011 removing their backward compatibility with SSL such that TLS sessions will never negotiate the use of Secure Sockets Layer (SSL) version 2.0.
-\end{itemize}
+
+
 
 \subsection{IRMA Assurer}
 The IRMA Assurer protocol makes use of TLS 1.2 as described above. This means both the server and the tablets will verify each other's certificates and agree upon a session key. Once a secure channel has been successfully set up, we have achieved privacy and data integrity of all communication over this channel.~\cite{tls1.2} 
@@ -75,27 +66,25 @@ The IRMA Assurer protocol makes use of TLS 1.2 as described above. This means bo
   \item De paspoortgegevens worden na omzetting in attributen automatisch door de server verwijderd.
   \item De paspoortgegevens worden na plaatsing van de attributen automatisch verwijderd van de tablets.
   \item Server en client moeten beide PA, BAC, SM en AA doen. EAC is niet mogelijk, want hiervoor hebben we de juiste key niet. We kunnen dit niet overlaten aan de client, want in geval van misbruik moet de server het laatste woord hebben.
-  \item TLS session resuming is niet toegestaan. Sessienummers in packets worden door de server genegeerd. Reden hiervoor is dat het PFS verzwakt: \url{https://timtaubert.de/blog/2014/11/the-sad-state-of-server-side-tls-session-resumption-implementations/}
+  \item TLS session resuming is niet toegestaan. Sessienummers in packets worden door de server genegeerd. Reden hiervoor is dat het PFS verzwakt.\footnote{\url{https://timtaubert.de/blog/2014/11/the-sad-state-of-server-side-tls-session-resumption-implementations/}}
+\end{itemize}
+
+\paragraph{Client initialization}
+\begin{itemize}
+	\item We installeren de public key van de server op de tablets bij preparatie.
+  \item We laten de server een certificaat maken voor de authenticiteit van de tablet, die wordt geïnstalleerd op de tablet zodra hij wordt geprepareerd. Bijkomend voordeel is dat een tablet onbruikbaar gemaakt kan worden via Certificate Revocation Lists. Hiermee bereiken we authenticatie van tablet aan server.
 \end{itemize}
 
 \subsubsection{Cryptographic}
-\sffamily
-\begin{itemize}
-  \item ``In principle, any public key encryption scheme can be used to build a key exchange with PFS by using the encryption scheme with ephemeral public and private keys.''~\cite{PFS}
-  \item We laten de server een certificaat maken voor de authenticiteit van de tablet, die wordt geïnstalleerd op de tablet zodra hij wordt geprepareerd. Bijkomend voordeel is dat een tablet onbruikbaar gemaakt kan worden via Certificate Revocation Lists. Hiermee bereiken we authenticatie van tablet aan server.
-  \item We installeren de public key van de server op de tablets bij preparatie. Tablets sturen een challenge versleuteld met deze key naar de server. De server geeft het juiste antwoord op de challenge en is op die manier geauthenticeerd aan de tablet.
-  \item \textsc{Gebruiken we hetzelfde certificaat voor de TLS handshake als voor authenticatie aan de server?}
-  
-  \item The IRMA Assurer protocol makes use of TCP for its transport layer protocol. The main reason for this is that we require the packets to be delivered without packet loss. In other words, we favor TCP over UDP for its high reliability. Other arguments for choosing TCP include its data flow control and packet reordering capabilities.
-  \item Uit de certificaten kan geen DH parameters worden afgeleid of afgelezen. Dat kan alleen als je geen PFS wil.
-\end{itemize}
+Before going into the cryptographic choices regarding Assurer it is important to take a quick look at the transport layer used below. There are two options, the User Datagram Protocol (UDP) and the Transport Control Protocol (TCP). We have chosen to make use of TCP for its transport layer protocol. The main reason for this is that we require the packets to be delivered without packet loss. In other words, we favor TCP over UDP for its high reliability. Furthermore it is best compatible with the TLS protocol which we aim to use. Other arguments for choosing TCP include its data flow control and packet reordering capabilities.
 
-\rmfamily
-Here we discuss the cryptographic options selected with regard to keys, certificates, key agreement, ciphers, (H)MAC, etc.
+In order to achieve the goals described in section~\ref{sec:goals} several choices have been made regarding the cryptography. What follows is an argumentation for the decisions made for Assurer. 
 
-As explained above we have chosen TLS 1.2 for its resistance against publicly known feasible attacks, as well as for its Perfect Forward Secrecy capabilities. ``From a practical point of view this requires that the key generation for the encryption scheme be fast enough. For most applications this disqualifies, for example, the use of ephemeral RSA public key encryption for achieving PFS, since the latter requires the generation of two long prime numbers for each exchange, a relatively costly operation.''~\cite{PFS} For this reason we have selected the Diffie-Hellman Key Exchange protocol.
+The guideline for choosing supported cipher suites is to offer perfect forward secrecy. Any cipher suites that offer PFS capabilities have been selected, while suites that do not are not selected. In principle, any public key encryption scheme can be used to build a key exchange with PFS by using the encryption scheme with ephemeral public and private keys~\cite{PFS}. This means we have the option to use any public key infrastructure as long as we throw away the keys when we're done using them. Furthermore we can either choose elliptic curve cryptography or conventional cryptography. Because we wish to achieve mutual authentication both parties need to exchange certificates. These certificates must be of type X.509v3 in accordance with the TLS specifications~\cite{tls1.2}. The type of cryptography used for these certificates may either be RSA or DSA. Generally, in terms of performance, neither is significantly better than the other, meaning we may support both. 
 
-Since the Assurer protocol is to be used only on newly developed hardware and software it is safe to use the newest cryptography; there should not be any compatibility issues. Mozilla lists the following as the best choice for modern clients in their documentation on server-side TLS,\footnote{\url{https://wiki.mozilla.org/Security/Server_Side_TLS}} ordered from most recommended to least recommended:
+As explained above we have chosen TLS 1.2 for its resistance against publicly known feasible attacks, as well as for its Perfect Forward Secrecy capabilities. This requires that the key generation for the encryption scheme must be fast enough. For most applications this disqualifies, for example, the use of ephemeral RSA public key encryption for achieving PFS, since the latter requires the generation of two long prime numbers for each exchange, a relatively costly operation~\cite{PFS}. For this reason we have selected the Diffie-Hellman Key Exchange protocol. Furthermore because of the faster key generation, better performance and shorter key length while still achieving the same level of security we have chosen to use elliptic curves.\footnote{\url{https://www.nsa.gov/business/programs/elliptic_curve.shtml}}
+
+Since the Assurer protocol is to be used only on newly developed hardware and software it is safe to use the newest cryptography; there should not be any compatibility issues. Mozilla lists the following as the best choice for modern clients in their documentation on server-side TLS,\footnote{\url{https://wiki.mozilla.org/Security/Server_Side_TLS}} ordered from most recommended to least recommended (the $!$ indicates forbidden):
 
 \begin{description}
 	\item [Ciphersuite] \texttt{ECDHE-RSA-AES128-GCM-SHA256, ECDHE-ECDSA-AES128-GCM-SHA256, \\
@@ -135,12 +124,12 @@ There are many reasons for this particular ordering. We highlight the main reaso
 \begin{itemize}
   \item ECDHE+AESGCM ciphers are selected first. These are TLS 1.2 ciphers and not widely supported at the moment. No known attack currently targets these ciphers.
   \item PFS ciphersuites are preferred, with ECDHE first, then DHE.
-	\item ECDHE provides faster handshakes than DHE ([[4]], [[5]]).
+	\item ECDHE provides faster handshakes than DHE.\footnote{\url{http://vincent.bernat.im/en/blog/2011-ssl-perfect-forward-secrecy.html}}\,\footnote{\url{http://nmav.gnutls.org/2011/12/price-to-pay-for-perfect-forward.html}}
   \item AES 128 is preferred to AES 256, because it provides good security, is really fast, and seems to be more resistant to timing attacks.
   \item SHA256 is favored over SHA384. This appears to be mainly for interoperability purposes.
 \end{itemize}
 
-``GCM is an Authenticated Encryption (AE) algorithm designed to provide both data authenticity (integrity) and confidentiality.'' [citation needed]
+Galois Counter Mode (GCM) is an Authenticated Encryption (AE) algorithm. AE algorithms are designed to provide both data authenticity (integrity) and confidentiality. Since both are goals of Assurer we favor GCM over CBC, but do not require it.
 
 For more information about the reasons behind this ordering please see Mozilla's documentation page.
 
@@ -171,17 +160,25 @@ CBC ciphers can be attacked with the Lucky Thirteen attack\footnote{\url{http://
 \paragraph{Logjam}
 When choosing this list of supported cipher suites we have chosen the ``modern'' preset described by Mozilla. This is especially important, because of the recently discovered Logjam attack on the Diffie-Hellman key agreement, in particular within TLS, SSH and VPN connections~\cite{logjam}. Essentially Logjam is a type of attack that allows an attacker to downgrade the security of the connection to DHE export cipher suites. It is also possible to attack weak ($\leq$ 1024-bit) Diffie-Hellman groups by precomputing the group and then using it for lookups. The short term solution for mitigating Logjam attacks is for servers to disable export ciphers and use freshly generated groups of 2048 bits or larger. Clients should no longer accept groups of sizes lower than 1024 bits. In the long term however it is preferable to switch to elliptic curve cryptography (ECC) and not allow any other cipher suites. This is because none of the attacks presented work against ECC. As described above the Assurer protocol only makes use of a subset of the ``modern'' preset, which in turn only makes use of ECC cipher suites, and therefore is not susceptible to the Logjam attack.
 
+\paragraph{Elliptic curves}
+NIST has defined 15 standard curves.\footnote{http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-4.pdf} However, in practice, many implementations only support two of them, P-256 and P-384, because that's what is recommended by NSA
+
 
 \subsubsection{Certificates}
 \begin{itemize}
-	\item Each client posesses one certificate, signed by the server, with which it may authenticate to the server.
-  \item 
+	\item Each client posesses one certificate, signed by the server, with which it may authenticate to the server. This occurs during the run of the TLS handshake protocol.
+  \item Each passport contains one certificate with which the authenticity may be verified (see section \ldots
 \end{itemize}
 
 
 
 \subsubsection{Keys}
 Het gebruik van TLS 1.2 betekent dat beide partijen na de TLS handshake beschikken over een sessiesleutel. Het is hierdoor niet nodig om een extra keypair te hebben voor encryptie. We gebruiken ephemeral keys in combinatie met elliptic curve Diffie-Hellman. 
+
+\subsubsection{Application data}
+All application data is protected with the session key as generated by the TLS handshake protocol. 
+
+\ldots
 
 \paragraph{Server}
 \begin{itemize}
