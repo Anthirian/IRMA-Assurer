@@ -168,12 +168,8 @@ It is currently assumed that standardized 2048 bits DH groups provide sufficient
 
 CBC ciphers can be attacked with the Lucky Thirteen attack\footnote{\url{http://www.isg.rhul.ac.uk/tls/Lucky13.html}} if the library is not written carefully to eliminate timing side channels. This attack requires multiple sessions and is possibly detectable due to the low volume of traffic in the IRMA Assurer protocol.
 
-\paragraph{Logjam attack on weak Diffie-Hellman}
-``The Logjam attack describes methods of attacking TLS servers supporting DHE export ciphers, and with weak ($\leq$ 1024 bit) Diffie Hellman groups. Modern TLS must use DH parameters of 2048 bits and above, or only use ECDHE. The modern configuration in this guide provide configurations that are not impacted by this issue. The intermediate and old configurations are impacted, and administrators are encourage to use DH parameters of 2048 bits wherever possible.
-
-more: \url{https://weakdh.org}'' --- Mozilla
-
-Since we only make use of ECDHE the Assurer protocol is not susceptible to the Logjam attack.
+\paragraph{Logjam}
+When choosing this list of supported cipher suites we have chosen the ``modern'' preset described by Mozilla. This is especially important, because of the recently discovered Logjam attack on the Diffie-Hellman key agreement, in particular within TLS, SSH and VPN connections~\cite{logjam}. Essentially Logjam is a type of attack that allows an attacker to downgrade the security of the connection to DHE export cipher suites. It is also possible to attack weak ($\leq$ 1024-bit) Diffie-Hellman groups by precomputing the group and then using it for lookups. The short term solution for mitigating Logjam attacks is for servers to disable export ciphers and use freshly generated groups of 2048 bits or larger. Clients should no longer accept groups of sizes lower than 1024 bits. In the long term however it is preferable to switch to elliptic curve cryptography (ECC) and not allow any other cipher suites. This is because none of the attacks presented work against ECC. As described above the Assurer protocol only makes use of a subset of the ``modern'' preset, which in turn only makes use of ECC cipher suites, and therefore is not susceptible to the Logjam attack.
 
 
 \subsubsection{Certificates}
