@@ -18,9 +18,11 @@ The protocol consists of two major parts, TLS Handshake and TLS Record. Handshak
 \end{figure}
 
 \subsubsection{TLS handshake}
-Below is a schematic overview of the TLS handshake, copied from RFC 5246~\cite{tls1.2}. The \texttt{*} indicates a step necessary for client-to-server authentication. The handshake begins when a client connects to a TLS-enabled server requesting a secure connection and presents a list of supported cipher suites (ciphers and hash functions). From this list, the server picks a cipher and hash function that it also supports and notifies the client of the decision. The server usually then sends back its identification in the form of a digital certificate. The certificate usually contains the server name, the trusted certificate authority (CA) and the server's public encryption key. The client may contact the server that issued the certificate (the trusted CA) and confirm the validity of the certificate before proceeding. In order to generate the session keys used for the secure connection, the client encrypts a random number with the server's public key and sends the result to the server. Only the server should be able to decrypt it, with its private key. From the random number, both parties generate a 'master secret' and then negotiate a session key for encryption and decryption.
+Figure~\ref{fig:tlshandshake} shows a schematic overview of the TLS handshake, copied from RFC 5246~\cite{tls1.2}. The \texttt{*} indicates a step necessary for client-to-server authentication. The handshake begins when a client connects to a TLS-enabled server requesting a secure connection and presents a list of supported cipher suites (ciphers and hash functions). From this list, the server picks a cipher and hash function that it also supports and notifies the client of the decision. The server usually then sends back its identification in the form of a digital certificate. The certificate usually contains the server name, the trusted certificate authority (CA) and the server's public encryption key. The client may contact the server that issued the certificate (the trusted CA) and confirm the validity of the certificate before proceeding. In order to generate the session keys used for the secure connection, the client encrypts a random number with the server's public key and sends the result to the server. Only the server should be able to decrypt it, with its private key. From the random number, both parties generate a 'master secret' and then negotiate a session key for encryption and decryption.
 
 The details about the underlying cryptographic functions selected for the IRMA Assurer protocol, such as encryption and hashing functions will be discussed later in section~\ref{sec:assumptions}.
+\begin{figure}[htb]
+\centering
 \begin{verbatim}
         Client                                               Server
 
@@ -39,39 +41,26 @@ The details about the underlying cryptographic functions selected for the IRMA A
                                      <--------             Finished
         Application Data             <------->     Application Data
 \end{verbatim}
-
+\label{fig:tlshandshake}
+\caption{TLS Handshake}
+\end{figure}
 
 \subsubsection{TLS record}
-The record protocol handles the sending and receiving of TLS related messages. It forms the basis of the TLS protocol. When sending, it will split the data in blocks, optionally compress it, apply a MAC, encrypt the data, add a fragment header and finally send the data over TCP port 443. When receiving, it will decrypt the data, verify the MAC, optionally decompress, defragment and finally deliver the data to the upper layer. Essentially this protocol forms the secure channel between client and server.
-
-\texttt{This byte ordering for multi-byte values is the commonplace network byte order or big-endian format~\cite{tls1.2}.}
+The record protocol handles the sending and receiving of TLS related messages. It forms the basis of the TLS protocol. When sending, it will split the data in blocks, optionally compress it, apply a MAC, encrypt the data, add a fragment header and finally send the data over TCP port 443. When receiving, it will decrypt the data, verify the MAC, optionally decompress, defragment and finally deliver the data to the upper layer. Essentially this protocol forms the secure channel between client and server~\cite{tls1.2}.
 
 \subsection{IRMA Assurer}
 The IRMA Assurer protocol makes use of TLS 1.2 as described above. This means both the server and the tablets will verify each other's certificates and agree upon a session key. Once a secure channel has been successfully set up, we have achieved privacy and data integrity of all communication over this channel~\cite{tls1.2}.
 
 \subsection{Assumptions}
 \label{sec:assumptions}
-\subsubsection{Operational}
-\begin{itemize}
-  \item Het systeem bestaat uit één server en meerdere tablets in een ster-structuur. De tablets communiceren niet onderling, maar enkel met de server.
-  \item Tablets worden verspreid over het land met daarop een app die met NFC paspoorten en IRMA kaarten uitleest.
-  \item Communicatie tussen IRMA kaart en chiplezer verloopt nog onversleuteld.
-  \item De tablets sturen paspoortdata naar de server ter controle
-  \item De server controleert de juistheid van de paspoortdata (buiten scope?) en genereert bijpassende attributen. 
-  \item De attributen worden met de enige key (een apart keypair, horend bij de `issuer') ondertekend, zodat iedereen ze kan controleren op echtheid.
-  \item De attributen worden door de tablet op de IRMA kaart geplaatst, maar eigenlijk willen we liever dat de tablet geen vinger in de pap heeft en alleen dient als doorgeefluik voor attributen.
-  \item De attributen worden na plaatsing op de IRMA kaart automatisch verwijderd van de tablets.
-  \item De paspoortgegevens worden na omzetting in attributen automatisch door de server verwijderd.
-  \item De paspoortgegevens worden na plaatsing van de attributen automatisch verwijderd van de tablets.
-  \item Server en client moeten beide PA, BAC, SM en AA doen. EAC is niet mogelijk, want hiervoor hebben we de juiste key niet. We kunnen dit niet overlaten aan de client, want in geval van misbruik moet de server het laatste woord hebben.
-  \item TLS session resuming is niet toegestaan. Sessienummers in packets worden door de server genegeerd. Reden hiervoor is dat het PFS verzwakt.\footnote{\url{https://timtaubert.de/blog/2014/11/the-sad-state-of-server-side-tls-session-resumption-implementations/}}
-\end{itemize}
+In this section we discuss the assumptions made with regard to Assurer. The section is divided into two parts. The first section discusses assumptions on the operational level and the second describes assumptions with respect to cryptography.
 
-\paragraph{Client initialization}
-\begin{itemize}
-	\item We installeren de public key van de server op de tablets bij preparatie.
-  \item We laten de server een certificaat maken voor de authenticiteit van de tablet, die wordt geïnstalleerd op de tablet zodra hij wordt geprepareerd. Bijkomend voordeel is dat een tablet onbruikbaar gemaakt kan worden via Certificate Revocation Lists. Hiermee bereiken we authenticatie van tablet aan server.
-\end{itemize}
+\subsubsection{Operational}
+Operational assumptions mostly focus on procedures that have to be followed for the Assurer protocol to work. We reiterate some parts of the basic course of events described in section~\ref{subsec:bcoe} to make them explicit as assumptions. 
+
+The entire ecosystem in which Assurer operates can be described as a star structure. At the center of the star will be the (only) server. The edges (points) of the star are formed by the clients. Clients do not communicate with each other, but only with the server. Each of these clients has their own NFC-enabled tablet, which is locked up in a safe and PIN code protected to prevent malicious use. By using an Android app installed on these tablets assurers may access data on passport chips and IRMA cards. Upon client initialization this app is installed on the tablet, as well as the DNS host name of the server. By using the host name the server has the option to switch IP addresses without breaking the system. Also installed on the tablet are a client certificate (signed by the server) required for authentication and its corresponding private key. The server checks the certificate for validity and also checks if it has not been revoked by accessing Certificate Revocation Lists (CRL), which mitigates issues with stolen tablets or misuse. Finally the public key of the server is installed for easy access.
+
+Although subject to change, at the time of writing the communication between IRMA card and terminal, i.e. tablet, is still being sent in the clear. Upon reading data from a passport chip the integrity is verified by the client by executing BAC and PA, and sent to the server for further analysis. The server performs the same checks, plus AA, and looks up the person corresponding to the data in a central database. If everything is proven to be valid the server will create digitally signed attribute-based credentials that correspond to the passport data. The server will then send these ABCs to the client, who will in turn install them on the person's IRMA card. Upon successful installation onto the IRMA card, the ABCs are securely deleted from both server and client. Furthermore, the passport data is securely deleted from the server and client. However the server does keep a log of the BSN that was part of the attribute signing request sent by the client, along with a timestamp. This facilitates traceability in case of anomalies. Finally, we do not support TLS session resuming. This property allows clients to send a stored session identifier to the server and then pick up where left off. Supporting this weakens the strength of the TLS connection, in particular the PFS property of TLS.\footnote{\url{https://timtaubert.de/blog/2014/11/the-sad-state-of-server-side-tls-session-resumption-implementations/}} Since we wish to have PFS we do not allow session resuming.
 
 \subsubsection{Cryptographic}
 Before going into the cryptographic choices regarding Assurer it is important to take a quick look at the transport layer used below. There are two options, the User Datagram Protocol (UDP) and the Transport Control Protocol (TCP). We have chosen to make use of TCP for its transport layer protocol. The main reason for this is that we require the packets to be delivered without packet loss. In other words, we favor TCP over UDP for its high reliability. Furthermore it is best compatible with the TLS protocol which we aim to use. Other arguments for choosing TCP include its data flow control and packet reordering capabilities.

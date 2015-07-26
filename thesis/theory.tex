@@ -59,6 +59,7 @@ Active Authentication (AA) is a challenge-response protocol that proves the auth
 An example scenario of AA would be a passport that has a private key securely embedded in its chip. The public counterpart of this key is then signed by the passport's producer, Morpho\footnote{\url{http://www.morpho.com/}} in the Netherlands. Morpho's public key is subsequently signed by the Dutch government, creating a certificate chain. Sending a challenge to the chip, encrypted with its public key would allow the chip to solve the challenge by decrypting it using its private key and thus proving its identity to the terminal.
 
 \subsection{Usage scenario}
+\label{subsec:bcoe}
 This section describes the basic course of events when a citizen requests a personal IRMA card and would like it to be initialized with his or her passport information. Here we only mention assumptions of operational nature. Goals and assumptions of cryptographic nature are discussed in section~\ref{sec:assumptions}. 
 
 First of all we assume the citizen in question is an inhabitant of the Netherlands and is in possession of an electronic passport. The citizen will fill out an online application form and enclose a photo in order to request a new IRMA card. Once the application is received by the IRMA card manufacturer a new IRMA card will be created. This card is blank, i.e. there are no attributes on the card. The application for this card, as well as the blank card itself, will subsequently be forwarded to one of several dozens of assurers. 
