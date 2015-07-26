@@ -2,6 +2,13 @@
 The IRMA Assurer protocol is an application level protocol. It is designed to run on top of TLS 1.2. Only the latest version of the TLS standard is considered cryptographically secure and therefore is the only version IRMA Assurer supports. A second argument for the use of version 1.2 is the possibility to achieve Perfect Forward Secrecy (PFS), meaning that in case the long term key is ever compromised, then the session keys derived from it before compromise are still secure~\cite{PFS}. This chapter will first describe the TLS protocol, explaining the chosen parameters. The IRMA Assurer protocol follows directly after.
 
 \subsection{Transport Layer Security}
+\begin{wrapfigure}{R}{0.45\textwidth}
+  \centering
+	\includegraphics[width=0.4\textwidth]{images/tlsstack.png}
+	\caption{TLS Protocol Hierarchy}
+	\label{fig:tlsstack}
+\end{wrapfigure}
+
 The Transport Layer Security (TLS) protocol is a protocol operating on the presentation layer of the OSI Reference Model~\cite{osi}. It is a protocol that secures the connection between two parties across an insecure channel, ensuring secrecy~\cite{tls1.2}. It also has the possibility for authentication based on certificates. TLS is commonly used in web browsers to encrypt HTTP into HTTPS traffic, but it is capable of protecting any TCP connection~\cite{lecture}.
 
 TLS 1.2 was defined in RFC 5246 in August 2008. It is based on the earlier TLS 1.1 specification. It was further refined in RFC 6176 in March 2011 removing their backward compatibility with SSL such that TLS sessions will never negotiate the use of Secure Sockets Layer (SSL) version 2.0.
@@ -10,39 +17,37 @@ TLS 1.2 was defined in RFC 5246 in August 2008. It is based on the earlier TLS 1
 
 The protocol consists of two major parts, TLS Handshake and TLS Record. Handshake is used for setting up connections between two parties, with optional authentication, while Record is used for ordering, encrypting and sending of the data. Handshake makes use of Record, so they work both alongside as well as on top of each other (see figure~\ref{fig:tlsstack}).
 
-\begin{figure}[htb]
-	\centering
-		\includegraphics[width=0.40\textwidth]{images/tlsstack.png}
-	\caption{TLS Protocol Hierarchy}
-	\label{fig:tlsstack}
-\end{figure}
+
 
 \subsubsection{TLS handshake}
 Figure~\ref{fig:tlshandshake} shows a schematic overview of the TLS handshake, copied from RFC 5246~\cite{tls1.2}. The \texttt{*} indicates a step necessary for client-to-server authentication. The handshake begins when a client connects to a TLS-enabled server requesting a secure connection and presents a list of supported cipher suites (ciphers and hash functions). From this list, the server picks a cipher and hash function that it also supports and notifies the client of the decision. The server usually then sends back its identification in the form of a digital certificate. The certificate usually contains the server name, the trusted certificate authority (CA) and the server's public encryption key. The client may contact the server that issued the certificate (the trusted CA) and confirm the validity of the certificate before proceeding. In order to generate the session keys used for the secure connection, the client encrypts a random number with the server's public key and sends the result to the server. Only the server should be able to decrypt it, with its private key. From the random number, both parties generate a 'master secret' and then negotiate a session key for encryption and decryption.
 
 The details about the underlying cryptographic functions selected for the IRMA Assurer protocol, such as encryption and hashing functions will be discussed later in section~\ref{sec:assumptions}.
+
+\begin{verbbox}
+Client                                               Server
+------                                              -------
+ClientHello              -------->
+                                                ServerHello
+                                               Certificate*
+                                         ServerKeyExchange*
+                                        CertificateRequest*
+                         <--------          ServerHelloDone
+Certificate*
+ClientKeyExchange
+CertificateVerify*
+[ChangeCipherSpec]
+Finished                 -------->
+                                         [ChangeCipherSpec]
+                         <--------                 Finished
+Application Data         <------->         Application Data
+\end{verbbox}
+
 \begin{figure}[htb]
 \centering
-\begin{verbatim}
-        Client                                               Server
-
-        ClientHello                  -------->
-                                                        ServerHello
-                                                       Certificate*
-                                                 ServerKeyExchange*
-                                                CertificateRequest*
-                                     <--------      ServerHelloDone
-        Certificate*
-        ClientKeyExchange
-        CertificateVerify*
-        [ChangeCipherSpec]
-        Finished                     -------->
-                                                 [ChangeCipherSpec]
-                                     <--------             Finished
-        Application Data             <------->     Application Data
-\end{verbatim}
-\label{fig:tlshandshake}
+\theverbbox
 \caption{TLS Handshake}
+\label{fig:tlshandshake}
 \end{figure}
 
 \subsubsection{TLS record}
