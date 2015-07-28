@@ -9,19 +9,25 @@ fun g/1.
 equation f(x, g(y)) = f(y, g(x)).
 
 (* Cryptographic functions *)
-fun encrypt/2.
-fun sencrypt/2.
-reduc decrypt(encrypt(x, pk(y)), y) = x.
-reduc sdecrypt(sencrypt(x, y), y) = x.
+fun pk/1. (* Retrieves the public part of a kepair *)
+fun sk/1. (* Retrieves the secret part of a keypair *)
 
-(* Symmetric key construction *)
+(* Symmetric key cryptography *)
+fun encrypt/2.
+reduc decrypt(sencrypt(x, y), y) = x.
+
+(* No public key crypto takes place, keypair is only used for signatures *)
+fun pencrypt/2.
+reduc pdecrypt(encrypt(x, pk(y)), sk(y)) = x.
+
+(* TLS Symmetric key construction *)
 fun generateSymmetricKey/3.
 
 (* Signing functions *)
 fun sign/2.
-reduc getmess(sign(m, k)) = m.
+reduc getmess(sign(m, k)) = m. (* TODO: change k to sk(k)? *)
 
-(* Pseudo−random−number function *)
+(* Pseudo−random−number function for generating TLS session key randomness *)
 fun PRF/1.
 
 (* Certificates *)
@@ -80,7 +86,7 @@ let Server =
 	in(c, ClientKeyExchange); let gx = ClientKeyExchange in
 	
 	(* Receiving CertificateVerify *)
-	let PKc = verify(clientCert, A) in
+	let PKc = verify(clientCert, C) in
     in(c, CertificateVerify); let cvHash = getmess(CertificateVerify, PKc) in	
 	
 	(* Compute pre-master secret (g^xy) *)
@@ -118,7 +124,7 @@ let Server =
 		if hmac_tablet = hmac(message_content, key) then
 			(* Check if the correct participants are included (C and S) and store the nonce *)
 			event begin(C, S, attributes);
-			let (user_specific_data, =C, =S, n) = sdecrypt(message_content, key) in
+			let (user_specific_data, =C, =S, n) = decrypt(message_content, key) in
 				(* Server checks user_specific_data internally *)
 				
 				(* We assume the data is valid, because checking it is not in the scope of this protocol *)
@@ -209,7 +215,7 @@ let Client =
 	let (body, hmac_server) = resp in
 		if hmac_server = hmac(body, key) then
 			(* Decrypt the response body, verify that C, S, and nA are correct and finally store the signed attributes *)
-			let (attributes, =C, =S, =nA) = sdecrypt(body, key) in
+			let (attributes, =C, =S, =nA) = decrypt(body, key) in
 				event end(C, S, attributes).
 				(* End of application data *)
 				
