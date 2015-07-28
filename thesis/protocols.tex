@@ -83,11 +83,12 @@ Since the Assurer protocol is to be used only on newly developed hardware and so
 ECDHE-RSA-AES256-GCM-SHA384, ECDHE-ECDSA-AES256-GCM-SHA384, \\
 DHE-RSA-AES128-GCM-SHA256, DHE-DSS-AES128-GCM-SHA256, kEDH+AESGCM, \\
 ECDHE-RSA-AES128-SHA256, ECDHE-ECDSA-AES128-SHA256, \\
-ECDHE-RSA-AES128-SHA, ECDHE-ECDSA-AES128-SHA, ECDHE-RSA-AES256-SHA384, \\
-ECDHE-ECDSA-AES256-SHA384, ECDHE-RSA-AES256-SHA, ECDHE-ECDSA-AES256-SHA, \\
-DHE-RSA-AES128-SHA256, DHE-RSA-AES128-SHA, DHE-DSS-AES128-SHA256, \\
-DHE-RSA-AES256-SHA256, DHE-DSS-AES256-SHA, DHE-RSA-AES256-SHA, \\
-!aNULL, !eNULL, !EXPORT, !DES, !RC4, !3DES, !MD5, !PSK}
+ECDHE-RSA-AES128-SHA, ECDHE-ECDSA-AES128-SHA, \\
+ECDHE-RSA-AES256-SHA384, ECDHE-ECDSA-AES256-SHA384, \\
+ECDHE-RSA-AES256-SHA, ECDHE-ECDSA-AES256-SHA, DHE-RSA-AES128-SHA256, \\
+DHE-RSA-AES128-SHA, DHE-DSS-AES128-SHA256, DHE-RSA-AES256-SHA256, \\
+DHE-DSS-AES256-SHA, DHE-RSA-AES256-SHA, !aNULL, !eNULL, !EXPORT, \\
+!DES, !RC4, !3DES, !MD5, !PSK}
   \item [Versions] \texttt{TLSv1.1, TLSv1.2}
   \item [RSA key size] \texttt{2048}
   \item [DH Parameter size] \texttt{2048}
@@ -96,7 +97,7 @@ DHE-RSA-AES256-SHA256, DHE-DSS-AES256-SHA, DHE-RSA-AES256-SHA, \\
   \item [HSTS] \texttt{max-age=15724800}
 \end{description}
 
-Note that this is the optimal configuration for Mozilla's own servers providing HTTPS connections, which explains the mention of HSTS. For the Assurer protocol we are only interested in cipher suites supported in TLS 1.2, while making use of elliptic curves and Diffie-Hellman, meaning we can safely ignore anything that is unrelated. Cross-referencing this list of cipher suites with the list of elliptic curve and TLS 1.2 cipher suites described by the OpenSSL documentation\footnote{\url{https://www.openssl.org/docs/apps/ciphers.html}} yields the following list of cipher suites supported by the IRMA Assurer protocol, in descending order of priority, named following IANA guidelines. This naming convention differs from the one used by Mozilla, who use OpenSSL guidelines, but is in correspondence with the RFC documents on TLS. The blank lines indicate Mozilla favors either a non-elliptic curve or a TLS 1.2 incompatible cipher suite over the ones that follow. 
+Note that this is the optimal configuration for Mozilla's own servers providing HTTPS connections, which explains the mention of HSTS. For the Assurer protocol we are only interested in cipher suites supported in TLS 1.2, while making use of elliptic curves and Diffie-Hellman, meaning we can safely ignore anything that is unrelated. Cross-referencing this list of cipher suites with the list of elliptic curve and TLS 1.2 cipher suites described by the OpenSSL documentation\footnote{\url{https://www.openssl.org/docs/apps/ciphers.html}} yields the following list of cipher suites supported by the IRMA Assurer protocol, in descending order of priority, named following IANA guidelines.\footnote{\url{http://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml}} This naming convention differs from the one used by Mozilla, who use OpenSSL guidelines, but is in correspondence with the RFC documents on TLS. The blank lines indicate Mozilla favors either a non-elliptic curve or a TLS 1.2 incompatible cipher suite over the ones that follow. 
 
 \begin{verbatim}
 TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
@@ -141,7 +142,7 @@ NIST has defined 15 standard curves.\footnote{\url{http://nvlpubs.nist.gov/nistp
 \subsubsection{Certificates}
 \begin{itemize}
 	\item Each client posesses one certificate, signed by the server, with which it may authenticate to the server. This occurs during the run of the TLS handshake protocol.
-  \item Each passport contains one certificate with which the authenticity may be verified (see section \ldots
+  \item Each passport contains one certificate with which the authenticity may be verified (see section~\ref{subsec:passports}).
 \end{itemize}
 
 \subsubsection{Keys}
