@@ -1,8 +1,6 @@
 free C, S.
 free c.
 
-free serverCert, clientCert.
-
 (* Diffie-Hellman functions *)
 fun f/2.
 fun g/1.
@@ -41,6 +39,9 @@ fun hmac/2.
 
 (* The Server waits for a TLS handshake from a Client *)
 let Server =
+	(* Server initialization *)
+	in(initChannel, (=S, SKs, serverCert));
+	
 	(* Start of TLS handshake *)
 	
 	(* Receiving ClientHello *)
@@ -136,6 +137,9 @@ let Server =
 
 (* The Client starts the TLS handshake *)
 let Client =
+	(* Client initialization *)
+	in(initChannel, (=C, SKc, clientCert));
+	
 	(* Start of TLS handshake *)
 	
 	(* Client generates a fresh nonce Nc *)
@@ -208,8 +212,14 @@ let Client =
 	
 	(* Wait for response *)
 	
+	(* TODO *)
+	(* We also wish to do Active Authentication, which is a challenge-response method using nonces *)
+	(* AA should be done before attributes are being created by the server. *)
+	
 	(* S -> C: {[{attr_1}SK_s, {attr_2}SK_s, ...], C, S, nonce}K_ts, HMAC *)
 	in(c, resp);
+	
+	(* TODO: Rewrite this to be more like TLS (no ifs and no indents) *) 
 	
 	(* Split up response and verify the HMAC *)
 	let (body, hmac_server) = resp in
@@ -218,7 +228,16 @@ let Client =
 			let (attributes, =C, =S, =nA) = decrypt(body, key) in
 				event end(C, S, attributes).
 				(* End of application data *)
+
 				
+let initializer =
+	new clientKeypair;
+	new serverKeypair;
+	let clientCert = cert(C, sk(clientKeypair)) in
+	let serverCert = cert(S, sk(serverKeypair)) in
+	out(initChannel, (C, pk(clientKeypair), clientCert));
+	out(initChannel, (S, pk(serverKeypair), serverCert)).
+
 process
 	(* There are multiple clients, but only one server *)
-	(!Client) | Server
+	initializer | (!Client) | Server
