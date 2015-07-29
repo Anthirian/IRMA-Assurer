@@ -125,7 +125,7 @@ let Server =
 	
 	(* Start of application data *)
 	
-	(* Receiving the passport *)
+	(* Receiving the passport *) (* C -> S: {data, C, S, nonce}K_cs, HMAC *)
 	in(s, ClientPassport); let (EncryptedPassport, HMACPassport) = ClientPassport in
 	
 	(* Decrypt the passport data *)
@@ -134,7 +134,7 @@ let Server =
 	(* Verify the HMAC *)
 	let =HMACPassport = hmac(EncryptedPassport, sessionKey) in
 	
-	(* Verify the participants and store the nonce *)
+	(* Verify the participants and store the nonce for after passport checks *)
 	let (Passport, =C, =S, N) = DecryptedPassport in
 	
 	(* Split up passport and store public key *)
@@ -145,30 +145,42 @@ let Server =
 	(* Do Passive Authentication *)
 	let =SecurityObject = hash(DataGroups) in
 	
-	(* TODO: What about the nonce we received? *)
-	
-	(* Start Active Authentication *)
+	(* Start Active Authentication by sending a challenge *)
 	new passportChallenge;
+	out(s, passportChallenge);
 	
+	(* Receive the response and verify if it is the correct solution *)
+	in(s, AAResponse); let =passportChallenge = unsign(AAResponse, PKp) in
 	
-	(* C -> S: {data, C, S, nonce}K_cs, HMAC *)
+	(* The Server assumes the passport to be valid and proceeds with generating ABCs *)
 	
-	(* Receive sign-and-verify request from Tablet *)
-	in(c, message_from_tablet);
-	(* Split up message into content and hmac, and verify integrity *)
-	let (message_content, hmac_tablet) = message_from_tablet in
-		if hmac_tablet = hmac(message_content, key) then
-			(* Check if the correct participants are included (C and S) and store the nonce *)
-			event begin(C, S, attributes);
-			let (user_specific_data, =C, =S, n) = decrypt(message_content, key) in
-				(* Server checks user_specific_data internally *)
-				
-				(* We assume the data is valid, because checking it is not in the scope of this protocol *)
-				
-				(* S -> C: {[{attr_1}SK_s, {attr_2}SK_s, ...], C, S, nonce}K_ts, HMAC *)
-				(* Send the response message *)
-				out(c, ((sign(user_specific_data, key), C, S, n), hmac(sign(user_specific_data, key), key))).
-				(* End of application data *)
+	(* Start of ABC logic *)
+	
+	(* Create a new characteristic, such as "student" or "male" *)
+	new Characteristic;
+	
+	(* Turn the characteristic into an ABC using the issuer's private key *)
+	(* TODO: Issuer keypair is initialized, but not being received yet *)
+	let AttributeBasedCredential = sign(Characteristic, SKi) in
+	
+	(* Create attribute data including participants and the previously received nonce *)
+	let AttributeData = (AttributeBasedCredential, C, S, N) in
+	
+	(* Encrypt the attribute data *)
+	let EncryptedAttributes = encrypt(AttributeData, sessionKey) in
+	
+	(* Generate the HMAC over the encrypted data *)
+	let HMACAttributes = hmac(EncryptedAttributes, sessionKey) in
+	
+	(* Send the encrypted data and its HMAC *)
+	let ABCs = (EncryptedAttributes, HMACAttributes) in out(s, ABCs);
+	
+	(* End of ABC logic *)
+	
+	(* End of application data *)
+	
+	(* Dead code check *)
+	new ServerEnd; out(c, ServerEnd).
 
 (* The Client starts the TLS handshake *)
 let Client =
@@ -240,14 +252,22 @@ let Client =
 	(* Receive the secure channel created by the server *)
 	in(c, newChannel); let s = decrypt(newChannel, sessionKey) in
 	
-	
-	(* Start of application data *)
-	
-	
+	(* Start of application data *)	
 	
 	(* C -> S: {data, C, S, nonce}K_cs, HMAC *)
 	
-	(* Perform Active Authentication on the passport *)
+	(* Perform Passive + Active Authentication on the passport *)
+	
+	(* 
+	Passport has keypair. 
+	Private key stored in secure memory of chip. 
+	Public key stored in SOD file. 
+	Server obtains public key.
+	Server issues challenge.
+	Passport solves challenge using private key. 
+	Server checks result using public key
+	Active Authentication finished.
+	*)
 	
 	(* "Create" passport *)
 	new DataGroups; (* 16 data groups in total *)
@@ -265,41 +285,46 @@ let Client =
 	(* Send the entire passport data *)
 	let ClientPassport = (EncryptedPassport, HMACPassport) in out(s, ClientPassport);
 	
+	(* Start of Active Authentication *)
 	
-	(* Wait for challenge from Server *)
-		
-	(* 
-	Passport has keypair. 
-	Private key stored in secure memory of chip. 
-	Public key stored in SOD file. 
-	Server obtains public key.
-	Server issues challenge.
-	Passport solves challenge using private key. 
-	Server checks result using public key
-	Active Authentication finished.
-	*)
+	(* Receive challenge from Server *)
+	in(s, AAChallenge);
+	
+	(* Send response to AA challenge *)
+	let AAResponse = sign(AAChallenge, sk(keypair)) in out(s, AAResponse);
+	
+	(* End of Active Authentication *)	
+	
+	(* Start of ABC logic *)
 	
 	(* S -> C: {[{attr_1}SK_s, {attr_2}SK_s, ...], C, S, nonce}K_ts, HMAC *)
-	in(c, resp);
+	in(s, ABCs); let (EncryptedAttributes, HMACAttributes) = ABCs in
 	
-	(* TODO: Rewrite this to be more like TLS (no ifs and no indents) *) 
+	(* Check the HMAC *)
+	let =HMACAttributes = hmac(EncryptedAttributes, sessionKey) in
 	
-	(* Split up response and verify the HMAC *)
-	let (body, hmac_server) = resp in
-		if hmac_server = hmac(body, key) then
-			(* Decrypt the response body, verify that C, S, and nA are correct and finally store the signed attributes *)
-			let (attributes, =C, =S, =nA) = decrypt(body, key) in
-				event end(C, S, attributes).
-				(* End of application data *)
+	(* Decrypt the Attributes *)
+	let AttributeData = decrypt(EncryptedAttributes, sessionKey)
+	
+	(* Verify the participants and the nonce and store the ABC(s) *)
+	let (AttributeBasedCredential, =C, =S, =nA) = AttributeData in
+	0.
+	
+	(* End of ABC logic *)
+	
+	(* End of application data *)
 
 				
 let initializer =
 	new clientKeypair;
 	new serverKeypair;
+	new issuerKeypair;
 	let clientCert = cert(C, sk(clientKeypair)) in
 	let serverCert = cert(S, sk(serverKeypair)) in
+	let issuerCert = cert(S, sk(issuerKeypair)) in
 	out(initChannel, (C, pk(clientKeypair), clientCert));
-	out(initChannel, (S, pk(serverKeypair), serverCert)).
+	out(initChannel, (S, pk(serverKeypair), serverCert));
+	out(initChannel, (S, pk(issuerKeypair), issuerCert)).
 
 process
 	(* There are multiple clients, but only one server *)
