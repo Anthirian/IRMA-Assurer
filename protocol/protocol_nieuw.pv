@@ -1,5 +1,10 @@
 free C, S.
+
+(* A public channel *)
 free c.
+
+(* Client and Server initialization is done over a private channel *)
+private free initChannel.
 
 (* Diffie-Hellman functions *)
 fun f/2.
@@ -23,7 +28,7 @@ fun generateSymmetricKey/3.
 
 (* Signing functions *)
 fun sign/2.
-reduc getmess(sign(m, k)) = m. (* TODO: change k to sk(k)? *)
+reduc unsign(sign(m, sk(x)), pk(x)) = m.
 
 (* Pseudo−random−number function for generating TLS session key randomness *)
 fun PRF/1.
@@ -88,7 +93,7 @@ let Server =
 	
 	(* Receiving CertificateVerify *)
 	let PKc = verify(clientCert, C) in
-    in(c, CertificateVerify); let cvHash = getmess(CertificateVerify, PKc) in	
+    in(c, CertificateVerify); let cvHash = unsign(CertificateVerify, PKc) in	
 	
 	(* Compute pre-master secret (g^xy) *)
 	let PMS = f(gx, g(y)) in
@@ -114,7 +119,37 @@ let Server =
 	
 	(* End of TLS handshake *)	
 	
+	(* Set up a new secure channel encrypted with the newly generated session key *)
+	new s;
+	out(c, encrypt(s, sessionKey));
+	
 	(* Start of application data *)
+	
+	(* Receiving the passport *)
+	in(s, ClientPassport); let (EncryptedPassport, HMACPassport) = ClientPassport in
+	
+	(* Decrypt the passport data *)
+	let DecryptedPassport = decrypt(EncryptedPassport, sessionKey) in
+	
+	(* Verify the HMAC *)
+	let =HMACPassport = hmac(EncryptedPassport, sessionKey) in
+	
+	(* Verify the participants and store the nonce *)
+	let (Passport, =C, =S, N) = DecryptedPassport in
+	
+	(* Split up passport and store public key *)
+	(* Note: If BAC is required, everything is inaccessible until BAC is performed *)
+	(* We assume BAC is performed once we get to this part *)
+	let (DataGroups, SecurityObject, PKp) = Passport in
+	
+	(* Do Passive Authentication *)
+	let =SecurityObject = hash(DataGroups) in
+	
+	(* TODO: What about the nonce we received? *)
+	
+	(* Start Active Authentication *)
+	new passportChallenge;
+	
 	
 	(* C -> S: {data, C, S, nonce}K_cs, HMAC *)
 	
@@ -160,7 +195,7 @@ let Client =
 	(* Receiving Server DH Key Parameters and checking integrity *)
 	in(c, ServerKeyExchange); let (g, n, gy, DH_PARAM_SIG) = ServerKeyExchange in
 	let PKs = verify(serverCert, S) in
-	let (=g, =n, =gy) = getmess(DH_PARAM_SIG, PKs) in
+	let (=g, =n, =gy) = unsign(DH_PARAM_SIG, PKs) in
 	
 	(* Receiving ClientCertificateRequest *)
 	in(c, ClientCertificateRequest); let (acceptable_certificate_types, acceptable_certificate_authorities) = ClientCertificateRequest in
@@ -198,23 +233,51 @@ let Client =
 	in(c, =ServerChangeCipherSpec);
 	
 	(* Receiving and verifying ServerFinished *)
-	in(c, ServerFinished); let =Finished =decrypt(ServerFinished, sessionKey) in
+	in(c, ServerFinished); let =Finished = decrypt(ServerFinished, sessionKey) in
 	
 	(* End of TLS handshake *)
 	
+	(* Receive the secure channel created by the server *)
+	in(c, newChannel); let s = decrypt(newChannel, sessionKey) in
+	
+	
 	(* Start of application data *)
+	
+	
 	
 	(* C -> S: {data, C, S, nonce}K_cs, HMAC *)
 	
-	(* Send encrypted message and its HMAC *)
-	new nA;
-	out(c, (encrypt((ppData, C, S, nA), key), hmac(ppData, key)));
+	(* Perform Active Authentication on the passport *)
 	
-	(* Wait for response *)
+	(* "Create" passport *)
+	new DataGroups; (* 16 data groups in total *)
+	let SecurityObject = hash(DataGroups) in (* Contains hashes of all DG values *)
+	new keypair; (* Public key is stored in DG15 *)
+	let Passport = (DataGroups, SecurityObject, pk(keypair)) in
 	
-	(* TODO *)
-	(* We also wish to do Active Authentication, which is a challenge-response method using nonces *)
-	(* AA should be done before attributes are being created by the server. *)
+	(* Encrypt the passport, reusing the session key *)
+	new nA; (* A fresh nonce *)
+	let EncryptedPassport = (encrypt(Passport, C, S, nA), sessionKey) in
+	
+	(* Generate HMAC of the encrypted passport, again reusing the session key *)
+	let HMACPassport = hmac(EncryptedPassport, sessionKey) in
+	
+	(* Send the entire passport data *)
+	let ClientPassport = (EncryptedPassport, HMACPassport) in out(s, ClientPassport);
+	
+	
+	(* Wait for challenge from Server *)
+		
+	(* 
+	Passport has keypair. 
+	Private key stored in secure memory of chip. 
+	Public key stored in SOD file. 
+	Server obtains public key.
+	Server issues challenge.
+	Passport solves challenge using private key. 
+	Server checks result using public key
+	Active Authentication finished.
+	*)
 	
 	(* S -> C: {[{attr_1}SK_s, {attr_2}SK_s, ...], C, S, nonce}K_ts, HMAC *)
 	in(c, resp);
