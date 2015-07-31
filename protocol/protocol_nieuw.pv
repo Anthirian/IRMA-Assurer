@@ -6,6 +6,8 @@ free c.
 (* Client and Server initialization is done over a private channel *)
 private free initChannel.
 
+free ServerHelloDone, ServerChangeCipherSpec, ClientChangeCipherSpec.
+
 (* Diffie-Hellman functions *)
 fun f/2.
 fun g/1.
@@ -17,7 +19,7 @@ fun sk/1. (* Retrieves the secret part of a keypair *)
 
 (* Symmetric key cryptography *)
 fun encrypt/2.
-reduc decrypt(sencrypt(x, y), y) = x.
+reduc decrypt(encrypt(x, y), y) = x.
 
 (* No public key crypto takes place, keypair is only used for signatures *)
 fun pencrypt/2.
@@ -40,6 +42,7 @@ private fun cert/2.
 reduc verify(cert(x, y), x) = y.
 
 (* Hash functions *)
+fun hash/1.
 fun hmac/2.
 
 (* Queries *)
@@ -66,22 +69,21 @@ query evinj: endClientAuth(x, y, z) ==> evinj: beginClientAuth(x, y, z).
 
 (* Passport checks *)
 query evinj: endPassiveAuth(x, y, z) ==> evinj: beginPassiveAuth(x, y, z).
-query evinj: endActiveAuth(x, y, z) ==> evinj: beginActiveAuth(x, y, z)
+query evinj: endActiveAuth(x, y, z) ==> evinj: beginActiveAuth(x, y, z).
 
 (* ABC transaction check *)
-query evinj: endTransaction(x, y, z) ==> evinj: beginTransaction(x, y, z)
-
+query evinj: endTransaction(x, y, z) ==> evinj: beginTransaction(x, y, z).
 
 (* Dead code check *)
-query attacker: clientFinished.
-query attacker: serverFinished.
+(* query attacker: clientEnd. *)
+(* query attacker: serverEnd. *)
 
 
 (* The Server waits for a TLS handshake from a Client *)
 let Server =
 	(* Server initialization *)
 	in(initChannel, (=S, SKs, serverCert));
-	
+	in(initChannel, (=S, SKi, issuerCert)); (* TODO: Initialize issuer keypair over separate channel? *)
 	(* Start of TLS handshake *)
 	
 	(* Receiving ClientHello *)
@@ -100,15 +102,15 @@ let Server =
 	let ServerCertificate = serverCert in out(c, ServerCertificate);
 	
 	(* Generate Diffie-Hellman Key Exchange parameters *)
-	new g;
-	new n;
-	new y;
+	new G;
+	new N;
+	new Y;
 	
 	(* Sign the parameters *)
-	let DH_PARAM_SIG = sign((g, n, g(y)), SKs) in
+	let DH_PARAM_SIG = sign((G, N, g(Y)), SKs) in
 	
 	(* Sending server DH key parameters *)
-	let ServerKeyExchange = (g, n, g(y), DH_PARAM_SIG) in out(c, ServerKeyExchange);
+	let ServerKeyExchange = (G, N, g(Y), DH_PARAM_SIG) in out(c, ServerKeyExchange);
 	
 	(* Create a list of acceptable certificate types and CAs *)
 	new acceptable_certificate_types;
@@ -124,7 +126,7 @@ let Server =
 	in(c, ClientCertificate); let clientCert = ClientCertificate in
 	
 	(* Receiving client DH key parameters *)
-	in(c, ClientKeyExchange); let gx = ClientKeyExchange in
+	in(c, ClientKeyExchange); let GX = ClientKeyExchange in
 	
 	(* Receiving CertificateVerify *)
 	let PKc = verify(clientCert, C) in
@@ -134,15 +136,15 @@ let Server =
 	let =cvHash = hash((ClientHello, ServerHello, ServerCertificate, ServerKeyExchange, ClientCertificateRequest, ServerHelloDone, ClientCertificate)) in
 	
 	(* End of client authentication *)
-	event endClientAuth(C, S, );
+	event endClientAuth(C, S, cvHash);
 	
 	(* Compute pre-master secret (g^xy) *)
-	let PMS = f(gx, g(y)) in
+	let PMS = f(GX, g(Y)) in
 	
 	
 	
 	(* Compute master secret, technically also requires "master secret" to be part of the arguments for hashing *)
-	let MSs = PRF(PMS, Nc, Ns) in
+	let MSs = PRF((PMS, Nc, Ns)) in
 	
 	(* Receiving ClientChangeCipherSpec *)
     in(c, =ClientChangeCipherSpec);
@@ -150,9 +152,9 @@ let Server =
 	(* Compute hash and session key *)
 	let Finished = hash((ClientHello, ServerHello, ServerCertificate, ServerKeyExchange, ClientCertificateRequest, ServerHelloDone, ClientCertificate, ClientKeyExchange, CertificateVerify, ClientChangeCipherSpec)) in
 	
-	event beginServerAuth(C, S, );
+	event beginServerAuth(C, S, PMS);
 	
-	let sessionKey = generateSymmetricKey(Na, Nb, MSs) in
+	let sessionKey = generateSymmetricKey(Nc, Ns, MSs) in
 	
 	(* Receiving and verifying ClientFinished *)
 	in(c, ClientFinished); let =Finished =decrypt(ClientFinished, sessionKey) in
@@ -181,7 +183,7 @@ let Server =
 	let =HMACPassport = hmac(EncryptedPassport, sessionKey) in
 	
 	(* Verify the participants and store the nonce for after passport checks *)
-	let (Passport, =C, =S, N) = DecryptedPassport in
+	let (Passport, =C, =S, Nonce) = DecryptedPassport in
 	
 	(* Split up passport and store public key *)
 	(* Note: If BAC is required, everything is inaccessible until BAC is performed *)
@@ -193,10 +195,11 @@ let Server =
 	
 	event endPassiveAuth(C, S, Passport);
 	
-	event beginActiveAuth(C, S, AAChallenge);
-	
 	(* Start Active Authentication by sending a challenge *)
 	new AAChallenge;
+	
+	event beginActiveAuth(C, S, AAChallenge);
+	
 	out(s, AAChallenge);
 	
 	(* Receive the response and verify if it is the correct solution *)
@@ -216,7 +219,7 @@ let Server =
 	event beginTransaction(C, S, AttributeBasedCredential);
 	
 	(* Create attribute data including participants and the previously received nonce *)
-	let AttributeData = (AttributeBasedCredential, C, S, N) in
+	let AttributeData = (AttributeBasedCredential, C, S, Nonce) in
 	
 	(* Encrypt the attribute data *)
 	let EncryptedAttributes = encrypt(AttributeData, sessionKey) in
@@ -257,9 +260,9 @@ let Client =
 	in(c, ServerCertificate); let serverCert = ServerCertificate in
 	
 	(* Receiving Server DH Key Parameters and checking integrity *)
-	in(c, ServerKeyExchange); let (g, n, gy, DH_PARAM_SIG) = ServerKeyExchange in
+	in(c, ServerKeyExchange); let (G, N, GY, DH_PARAM_SIG) = ServerKeyExchange in
 	let PKs = verify(serverCert, S) in
-	let (=g, =n, =gy) = unsign(DH_PARAM_SIG, PKs) in	
+	let (=G, =N, =GY) = unsign(DH_PARAM_SIG, PKs) in	
 	
 	(* Receiving ClientCertificateRequest *)
 	in(c, ClientCertificateRequest); let (acceptable_certificate_types, acceptable_certificate_authorities) = ClientCertificateRequest in
@@ -270,27 +273,30 @@ let Client =
 	(* Sending client certificate chain *)
 	let ClientCertificate = clientCert in out(c, ClientCertificate);
 	
-	event beginClientAuth(C, S, );
-	
 	(* Sending client DH key parameters *)
 	new x;
-	let g(x) = ClientKeyExchange in out(c, ClientKeyExchange);
+	let ClientKeyExchange = g(x) in out(c, ClientKeyExchange);
+	
+	(* Creating hash of past messages *)
+	let cvHash = hash((ClientHello, ServerHello, ServerCertificate, ServerKeyExchange, ClientCertificateRequest, ServerHelloDone, ClientCertificate)) in
+	
+	event beginClientAuth(C, S, cvHash);
 	
 	(* Sending CertificateVerify *)
-	let CertificateVerify = sign(hash((ClientHello, ServerHello, ServerCertificate, ServerKeyExchange, ClientCertificateRequest, ServerHelloDone, ClientCertificate)), SKc) in out(c, CertificateVerify);
+	let CertificateVerify = sign(cvHash, SKc) in out(c, CertificateVerify);
 	
 	(* Compute the pre-master secret (g^xy) *)
-	let PMS = f(gy, g(x)) in
+	let PMS = f(GY, g(x)) in
 	
 	(* Compute the master secret, technically also requires "master secret" to be part of the arguments for hashing *)
-	let MSc = PRF(PMS, Nc, Ns) in
+	let MSc = PRF((PMS, Nc, Ns)) in
 	
 	(* Sending ClientChangeCipherSpec, indicating a switch to the encryption negotiated above. Essentially just 1 byte *)
     out(c, ClientChangeCipherSpec);
 	
 	(* Compute hash and session key *)
 	let Finished = hash((ClientHello, ServerHello, ServerCertificate, ServerKeyExchange, ClientCertificateRequest, ServerHelloDone, ClientCertificate, ClientKeyExchange, CertificateVerify, ClientChangeCipherSpec)) in
-	let sessionKey = generateSymmetricKey(Na, Nb, MSc) in
+	let sessionKey = generateSymmetricKey(Nc, Ns, MSc) in
 	
 	(* Sending ClientFinished *)
 	out(c, encrypt(Finished, sessionKey));
@@ -301,7 +307,7 @@ let Client =
 	(* Receiving and verifying ServerFinished *)
 	in(c, ServerFinished); let =Finished = decrypt(ServerFinished, sessionKey) in
 	
-	event endServerAuth(C, S, );
+	event endServerAuth(C, S, PMS);
 	
 	(* End of TLS handshake *)
 	
@@ -335,7 +341,7 @@ let Client =
 	
 	(* Encrypt the passport, reusing the session key *)
 	new nA; (* A fresh nonce *)
-	let EncryptedPassport = (encrypt(Passport, C, S, nA), sessionKey) in
+	let EncryptedPassport = encrypt((Passport, C, S, nA), sessionKey) in
 	
 	(* Generate HMAC of the encrypted passport, again reusing the session key *)
 	let HMACPassport = hmac(EncryptedPassport, sessionKey) in
@@ -370,12 +376,14 @@ let Client =
 	(* Verify the participants and the nonce and store the ABC(s) *)
 	let (AttributeBasedCredential, =C, =S, =nA) = AttributeData in
 	
-	event endTransaction(C, S, AttributeBasedCredential).
+	event endTransaction(C, S, AttributeBasedCredential);
 	
 	(* End of ABC logic *)
 	
 	(* End of application data *)
-
+	
+	(* Dead code check *)
+	new clientEnd; out(c, clientEnd).
 				
 let initializer =
 	new clientKeypair;
