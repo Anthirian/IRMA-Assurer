@@ -319,12 +319,12 @@ let initializer =
 	new clientKeypair;
 	new serverKeypair;
 	new issuerKeypair;
-	let clientCert = cert(C, sk(clientKeypair)) in
-	let serverCert = cert(S, sk(serverKeypair)) in
-	let issuerCert = cert(S, sk(issuerKeypair)) in
-	out(initChannel, (C, pk(clientKeypair), clientCert));
-	out(initChannel, (S, pk(serverKeypair), serverCert));
-	out(initChannel, (S, pk(issuerKeypair), issuerCert)).
+	let clientCert = cert(C, pk(clientKeypair)) in
+	let serverCert = cert(S, pk(serverKeypair)) in
+	let issuerCert = cert(S, pk(issuerKeypair)) in
+	out(initChannel, (C, sk(clientKeypair), clientCert));
+	out(initChannel, (S, sk(serverKeypair), serverCert));
+	out(initChannel, (S, sk(issuerKeypair), issuerCert)).
 
 process
 	(* There are multiple clients, but only one server *)
