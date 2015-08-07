@@ -1,12 +1,11 @@
-free C, S.
-
 (* A public channel *)
-free c.
+free net.
 
 (* Client and Server initialization is done over a private channel *)
 private free initChannel.
 
-free ServerHelloDone, ServerChangeCipherSpec, ClientChangeCipherSpec.
+(* Message tags *)
+free ClientHello, ServerHello, ServerCertificate, ServerKeyExchange, ClientCertificateRequest, ServerHelloDone, ClientCertificate, ClientKeyExchange, CertificateVerify, ClientChangeCipherSpec, ClientFinished, ServerChangeCipherSpec, ServerFinished.
 
 (* Diffie-Hellman functions *)
 fun f/2.
@@ -20,10 +19,6 @@ fun sk/1. (* Retrieves the secret part of a keypair *)
 (* Symmetric key cryptography *)
 fun encrypt/2.
 reduc decrypt(encrypt(x, y), y) = x.
-
-(* No public key crypto takes place, keypair is only used for signatures *)
-fun pencrypt/2.
-reduc pdecrypt(encrypt(x, pk(y)), sk(y)) = x.
 
 (* TLS Symmetric key construction *)
 fun generateSymmetricKey/3.
@@ -46,6 +41,7 @@ fun hash/1.
 fun hmac/2.
 
 (* Queries *)
+
 (* secrecy Pre Master secret *)
 query attacker: PMS.
 
@@ -53,7 +49,7 @@ query attacker: PMS.
 query attacker: MSc.
 query attacker: MSs.
 
-(* Not sure if necessary
+(* TODO: Not sure if necessary
 secrecy Finished message from the client
 query attacker: FinishedAFlag.
 
@@ -75,19 +71,19 @@ query evinj: endActiveAuth(x, y, z) ==> evinj: beginActiveAuth(x, y, z).
 query evinj: endTransaction(x, y, z) ==> evinj: beginTransaction(x, y, z).
 
 (* Dead code check *)
-(* query attacker: clientEnd. *)
-(* query attacker: serverEnd. *)
+query attacker: clientEnd.
+query attacker: serverEnd.
 
 
 (* The Server waits for a TLS handshake from a Client *)
 let Server =
 	(* Server initialization *)
-	in(initChannel, (=S, SKs, serverCert));
+	in(initChannel, (S, SKs, serverCert));
 	in(initChannel, (=S, SKi, issuerCert)); (* TODO: Initialize issuer keypair over separate channel? *)
 	(* Start of TLS handshake *)
 	
 	(* Receiving ClientHello *)
-	in(c, ClientHello);	let (A, Nc, SupportedOptions) = ClientHello in
+	in(net, CH);	let (=ClientHello, C, Nc, SupportedOptions) = CH in
 	
 	(* Server generates a fresh nonce Ns *)
 	new Ns;
@@ -96,10 +92,10 @@ let Server =
 	new SelectedOptions;
 	
 	(* Sending ServerHello *)
-	let ServerHello = (S, Ns, SelectedOptions) in out(c, ServerHello);
+	let SH = (ServerHello, S, Ns, SelectedOptions) in out(net, SH);
 	
 	(* Sending server certificate chain *)
-	let ServerCertificate = serverCert in out(c, ServerCertificate);
+	let SC = (ServerCertificate, serverCert) in out(net, SC);
 	
 	(* Generate Diffie-Hellman Key Exchange parameters *)
 	new G;
@@ -107,33 +103,33 @@ let Server =
 	new Y;
 	
 	(* Sign the parameters *)
-	let DH_PARAM_SIG = sign((G, N, g(Y)), SKs) in
+	let DHSignature = sign((G, N, g(Y)), SKs) in
 	
 	(* Sending server DH key parameters *)
-	let ServerKeyExchange = (G, N, g(Y), DH_PARAM_SIG) in out(c, ServerKeyExchange);
+	let SKE = (ServerKeyExchange, G, N, g(Y), DHSignature) in out(net, SKE);
 	
 	(* Create a list of acceptable certificate types and CAs *)
 	new acceptable_certificate_types;
 	new acceptable_certificate_authorities;
 	
 	(* Sending ClientCertificateRequest *)
-	let ClientCertificateRequest = (acceptable_certificate_types, acceptable_certificate_authorities) in out(c, ClientCertificateRequest);
+	let CCR = (ClientCertificateRequest, acceptable_certificate_types, acceptable_certificate_authorities) in out(net, CCR);
 	
 	(* Sending ServerHello Done *)
-	out(c, ServerHelloDone);
+	let SHD = ServerHelloDone in out(net, SHD);
 	
 	(* Receiving client certificate chain *)	
-	in(c, ClientCertificate); let clientCert = ClientCertificate in
+	in(net, CC); let (=ClientCertificate, clientCert) = CC in
 	
 	(* Receiving client DH key parameters *)
-	in(c, ClientKeyExchange); let GX = ClientKeyExchange in
+	in(net, CKE); let (=ClientKeyExchange, GX) = CKE in
 	
 	(* Receiving CertificateVerify *)
 	let PKc = verify(clientCert, C) in
-    in(c, CertificateVerify); let cvHash = unsign(CertificateVerify, PKc) in	
+    in(net, CV); let (=CertificateVerify, cvHash) = unsign(CV, PKc) in
 	
 	(* Verify hash *)
-	let =cvHash = hash((ClientHello, ServerHello, ServerCertificate, ServerKeyExchange, ClientCertificateRequest, ServerHelloDone, ClientCertificate)) in
+	let =cvHash = hash((CH, SH, SC, SKE, CCR, SHD, CC)) in
 	
 	(* End of client authentication *)
 	event endClientAuth(C, S, cvHash);
@@ -141,35 +137,33 @@ let Server =
 	(* Compute pre-master secret (g^xy) *)
 	let PMS = f(GX, g(Y)) in
 	
-	
-	
 	(* Compute master secret, technically also requires "master secret" to be part of the arguments for hashing *)
 	let MSs = PRF((PMS, Nc, Ns)) in
 	
 	(* Receiving ClientChangeCipherSpec *)
-    in(c, =ClientChangeCipherSpec);
+    in(net, CCCS); let =ClientChangeCipherSpec = CCCS in
 	
 	(* Compute hash and session key *)
-	let Finished = hash((ClientHello, ServerHello, ServerCertificate, ServerKeyExchange, ClientCertificateRequest, ServerHelloDone, ClientCertificate, ClientKeyExchange, CertificateVerify, ClientChangeCipherSpec)) in
+	let Finished = hash((CH, SH, SC, SKE, CCR, SHD, CC, CKE, CV, CCCS)) in
 	
 	event beginServerAuth(C, S, PMS);
 	
 	let sessionKey = generateSymmetricKey(Nc, Ns, MSs) in
 	
 	(* Receiving and verifying ClientFinished *)
-	in(c, ClientFinished); let =Finished =decrypt(ClientFinished, sessionKey) in
+	in(net, CF); let (=ClientFinished, =Finished) = decrypt(CF, sessionKey) in
 	
 	(* Sending ServerChangeCipherSpec, indicating a switch to the encryption negotiated above. Essentially just 1 byte *) 	
-	out(c, ServerChangeCipherSpec);
+	let SCCS = ServerChangeCipherSpec in out(net, SCCS);
 	
 	(* Sending ServerFinished, using the newly negotiated encryption *)
-	out(c, Finished);
+	out(net, encrypt((ServerFinished, Finished), sessionKey));
 	
 	(* End of TLS handshake *)	
 	
 	(* Set up a new secure channel encrypted with the newly generated session key *)
 	new s;
-	out(c, encrypt(s, sessionKey));
+	out(net, encrypt(s, sessionKey));
 	
 	(* Start of application data *)
 	
@@ -235,12 +229,12 @@ let Server =
 	(* End of application data *)
 	
 	(* Dead code check *)
-	new ServerEnd; out(c, ServerEnd).
+	new ServerEnd; out(net, ServerEnd).
 
 (* The Client starts the TLS handshake *)
 let Client =
 	(* Client initialization *)
-	in(initChannel, (=C, SKc, clientCert));
+	in(initChannel, (C, SKc, clientCert));
 	
 	(* Start of TLS handshake *)
 	
@@ -251,39 +245,39 @@ let Client =
 	new SupportedOptions;
 	
 	(* Sending ClientHello *)
-	let ClientHello = (C, Nc, SupportedOptions) in out(c, ClientHello);
+	let CH = (ClientHello, C, Nc, SupportedOptions) in out(net, CH);
 	
 	(* Receiving ServerHello *)
-	in(c, ServerHello); let (S, Ns, SelectedOptions) = ServerHello in
+	in(net, SH); let (=ServerHello, S, Ns, SelectedOptions) = SH in
 	
 	(* Receiving server certificate chain *)
-	in(c, ServerCertificate); let serverCert = ServerCertificate in
+	in(net, SC); let (=ServerCertificate, serverCert) = SC in
 	
 	(* Receiving Server DH Key Parameters and checking integrity *)
-	in(c, ServerKeyExchange); let (G, N, GY, DH_PARAM_SIG) = ServerKeyExchange in
+	in(net, SKE); let (=ServerKeyExchange, G, N, GY, DHSignature) = SKE in
 	let PKs = verify(serverCert, S) in
-	let (=G, =N, =GY) = unsign(DH_PARAM_SIG, PKs) in	
+	let (=G, =N, =GY) = unsign(DHSignature, PKs) in
 	
 	(* Receiving ClientCertificateRequest *)
-	in(c, ClientCertificateRequest); let (acceptable_certificate_types, acceptable_certificate_authorities) = ClientCertificateRequest in
+	in(net, CCR); let (=ClientCertificateRequest, acceptable_certificate_types, acceptable_certificate_authorities) = CCR in
 	
 	(* Receiving ServerHelloDone *)
-	in(c, =ServerHelloDone);
+	in(net, SHD); let =ServerHelloDone = SHD in
 	
 	(* Sending client certificate chain *)
-	let ClientCertificate = clientCert in out(c, ClientCertificate);
+	let CC = (ClientCertificate, clientCert) in out(net, CC);
 	
 	(* Sending client DH key parameters *)
 	new x;
-	let ClientKeyExchange = g(x) in out(c, ClientKeyExchange);
+	let CKE = (ClientKeyExchange, g(x)) in out(net, CKE);
 	
 	(* Creating hash of past messages *)
-	let cvHash = hash((ClientHello, ServerHello, ServerCertificate, ServerKeyExchange, ClientCertificateRequest, ServerHelloDone, ClientCertificate)) in
+	let cvHash = hash((CH, SH, SC, SKE, CCR, SHD, CC)) in
 	
 	event beginClientAuth(C, S, cvHash);
 	
 	(* Sending CertificateVerify *)
-	let CertificateVerify = sign(cvHash, SKc) in out(c, CertificateVerify);
+	let CV = (sign((CertificateVerify, cvHash), SKc) in out(net, CV);
 	
 	(* Compute the pre-master secret (g^xy) *)
 	let PMS = f(GY, g(x)) in
@@ -292,27 +286,27 @@ let Client =
 	let MSc = PRF((PMS, Nc, Ns)) in
 	
 	(* Sending ClientChangeCipherSpec, indicating a switch to the encryption negotiated above. Essentially just 1 byte *)
-    out(c, ClientChangeCipherSpec);
+    let CCCS = ClientChangeCipherSpec in out(net, CCCS);
 	
 	(* Compute hash and session key *)
-	let Finished = hash((ClientHello, ServerHello, ServerCertificate, ServerKeyExchange, ClientCertificateRequest, ServerHelloDone, ClientCertificate, ClientKeyExchange, CertificateVerify, ClientChangeCipherSpec)) in
+	let Finished = hash((CH, SH, SC, SKE, CCR, SHD, CC, CKE, CV, CCCS)) in
 	let sessionKey = generateSymmetricKey(Nc, Ns, MSc) in
 	
 	(* Sending ClientFinished *)
-	out(c, encrypt(Finished, sessionKey));
+	let CF = (ClientFinished, encrypt(Finished, sessionKey)) in out(net, CF);
 	
 	(* Receiving ServerChangeCipherSpec, indicating a switch to the encryption negotiated above. Essentially just 1 byte *)
-	in(c, =ServerChangeCipherSpec);
+	in(net, SCCS); let =ServerChangeCipherSpec = SCCS in
 	
 	(* Receiving and verifying ServerFinished *)
-	in(c, ServerFinished); let =Finished = decrypt(ServerFinished, sessionKey) in
+	in(net, SF); let (=ServerFinished, =Finished) = decrypt(SF, sessionKey) in
 	
 	event endServerAuth(C, S, PMS);
 	
 	(* End of TLS handshake *)
 	
 	(* Receive the secure channel created by the server *)
-	in(c, newChannel); let s = decrypt(newChannel, sessionKey) in
+	in(net, newChannel); let s = decrypt(newChannel, sessionKey) in
 	
 	(* Start of application data *)	
 	
@@ -383,7 +377,7 @@ let Client =
 	(* End of application data *)
 	
 	(* Dead code check *)
-	new clientEnd; out(c, clientEnd).
+	new clientEnd; out(net, clientEnd).
 				
 let initializer =
 	new clientKeypair;
