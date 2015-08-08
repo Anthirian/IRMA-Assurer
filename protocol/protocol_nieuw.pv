@@ -98,12 +98,12 @@ let Server =
 	let SC = (ServerCertificate, serverCert) in out(net, SC);
 	
 	(* Generate Diffie-Hellman Key Exchange parameters *)
-	new G;
-	new N;
-	new Y;
+	new G; (* Generator, public *)
+	new N; (* Modulus, public *)
+	new Y; (* Server's exponent, secret *)
 	
 	(* Sign the parameters *)
-	let DHSignature = sign((G, N, g(Y)), SKs) in
+	let DHSignature = sign((Na, Nb, G, N, g(Y)), SKs) in
 	
 	(* Sending server DH key parameters *)
 	let SKE = (ServerKeyExchange, G, N, g(Y), DHSignature) in out(net, SKE);
@@ -256,7 +256,7 @@ let Client =
 	(* Receiving Server DH Key Parameters and checking integrity *)
 	in(net, SKE); let (=ServerKeyExchange, G, N, GY, DHSignature) = SKE in
 	let PKs = verify(serverCert, S) in
-	let (=G, =N, =GY) = unsign(DHSignature, PKs) in
+	let (=Na, =Nb, =G, =N, =GY) = unsign(DHSignature, PKs) in
 	
 	(* Receiving ClientCertificateRequest *)
 	in(net, CCR); let (=ClientCertificateRequest, acceptable_certificate_types, acceptable_certificate_authorities) = CCR in
