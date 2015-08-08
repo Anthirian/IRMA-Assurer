@@ -277,7 +277,7 @@ let Client =
 	event beginClientAuth(C, S, cvHash);
 	
 	(* Sending CertificateVerify *)
-	let CV = (sign((CertificateVerify, cvHash), SKc) in out(net, CV);
+	let CV = (sign((CertificateVerify, cvHash), SKc)) in out(net, CV);
 	
 	(* Compute the pre-master secret (g^xy) *)
 	let PMS = f(GY, g(x)) in

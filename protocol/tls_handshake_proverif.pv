@@ -8,6 +8,9 @@
 (**************************************************************************
  * DEFINITIONS                                                            *
  **************************************************************************)
+
+param verboseClauses = explained.
+param traceDisplay = long.
  
 (* A public channel *)
 free net.
@@ -135,7 +138,7 @@ let client =
 	in(net, FB);
 	
 	(* A verifies received finished *)
-	let =Finished =decrypt(FB, serverK(Na, Nb, M)) in
+	let =Finished = decrypt(FB, serverK(Na, Nb, M)) in
 	
 	(** end server authentication **)
 	event endServerAuth(A, B, PMS);
