@@ -60,7 +60,8 @@
 	 **************************************************************************)
 	 
 	(* secrecy Pre Master secret *)
-	query attacker: PMS.
+	query attacker: PMSa.
+	query attacker: PMSb.
 
 	(* secrecy Master secret *)
 	query attacker: MSa.
@@ -155,22 +156,24 @@
 		let =Finished = decrypt(FB, serverK(Na, Nb, M)) in
 		
 		(** end server authentication **)
-		event endServerAuth(A, B, PMS);
+		event endServerAuth(A, B, Finished);
 		
 		(** secrecy check on the Master secret **)
-		new MSa; out(M, MSa) |
+		(new MSa; out(M, MSa)) |
+		
+		(** secrecy check on the Pre-Master Secret **)
+		(new PMSa; out(PMS, PMSa)) |
 		
 		(** secrecy check on the Finished message **)
-		new FinishedAFlag; out(Finished, FinishedAFlag) |
+		(new FinishedAFlag; out(Finished, FinishedAFlag)) |
 		
 		(** dead code check **)
-		new clientFinished; out(net, clientFinished).
+		(new clientFinished; out(net, clientFinished)).
 		
 	(**************************************************************************
 	 * THE SERVER PROCESS                                                     *
 	 **************************************************************************)
 	let server =
-		(** THE LINE BELOW CAUSES PROVERIF TO CLAIM "CANNOT BE PROVED" WHEN CHECKING DEAD CODE **)
 		(** Initial agent data from a trusted channel **)
 		in(initialServerData, (B, keypair, serverCert));
 		
@@ -232,7 +235,7 @@
 		let Finished = hash((CH, SH, SC, SKE, CC, CKE, CV, M)) in
 		
 		(** server authentication **)
-		event beginServerAuth(A, B, PMS);
+		event beginServerAuth(A, B, Finished);
 		
 		(* B −> A : Finished *)
 		out(net, encrypt(Finished, serverK(Na, Nb, M)));
@@ -241,13 +244,16 @@
 		let =Finished = decrypt(FA, clientK(Na, Nb, M)) in
 		
 		(** secrecy check on the Master secret **)
-		new MSb; out(M, MSb) |
+		(new MSb; out(M, MSb)) |
+		
+		(** secrecy check on the Pre-Master Secret **)
+		(new PMSb; out(PMS, PMSb)) |
 		
 		(** secrecy check on the finished **)
-		new FinishedBFlag; out(Finished, FinishedBFlag) |
+		(new FinishedBFlag; out(Finished, FinishedBFlag)) |
 		
 		(** dead code check **)
-		new serverFinished; out(net, serverFinished).
+		(new serverFinished; out(net, serverFinished)).
 		
 	(**************************************************************************
 	 * THE INITIALIZER PROCESS                                                *
