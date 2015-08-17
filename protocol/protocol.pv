@@ -125,7 +125,7 @@ process
 			(* Distribute the public keys *)
 			out(c, PK_t);
 			(* Start both processes *)
-			((!Tablet) | (!Server))
+			((!Tablet) | (!Server)).
 
 
 

@@ -10,7 +10,7 @@
 	 **************************************************************************)
 
 	(*param verboseClauses = explained.*)
-	param traceDisplay = long.
+	(* param traceDisplay = long. *)
 	 
 	(* A public channel *)
 	free net.
@@ -138,7 +138,7 @@
 		let CV = sign((CertificateVerify, cvHash), SKc) in out(net, CV);
 		
 		(* Compute the pre-master secret (g^xy) *)
-		let PMS = f(GY, g(X)) in
+		let PMS = f(GY, X) in
 		
 		(* A calculates the Master secret M *)
 		let M = PRF((PMS, Na, Nb)) in
@@ -223,7 +223,7 @@
 		event endClientAuth(A, B, cvHash);
 		
 		(* Calculating the Pre-Master Secret *)
-		let PMS = f(GX, g(Y)) in
+		let PMS = f(Y, GX) in
 		
 		(* A −> B : Finished *)
 		in(net, FA);
