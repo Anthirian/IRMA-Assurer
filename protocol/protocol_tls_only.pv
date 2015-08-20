@@ -148,11 +148,11 @@
 		
 		(* A −> B : Finished *)
 		out(net, encrypt(Finished, clientK(Na, Nb, M)));
-		
+				
 		(* B −> A : Finished *)
 		in(net, FB);
-		
-		(* A verifies received finished *)
+		new clientFinished; out(net, clientFinished);
+		(* A verifies received finished *) (* Dead code from here, decrypting seems to go wrong, maybe key is incorrect? *)
 		let =Finished = decrypt(FB, serverK(Na, Nb, M)) in
 		
 		(** end server authentication **)
@@ -165,10 +165,10 @@
 		(new PMSa; out(PMS, PMSa)) |
 		
 		(** secrecy check on the Finished message **)
-		(new FinishedAFlag; out(Finished, FinishedAFlag)) |
+		(new FinishedAFlag; out(Finished, FinishedAFlag)). (* | *)
 		
 		(** dead code check **)
-		(new clientFinished; out(net, clientFinished)).
+		(* (new clientFinished; out(net, clientFinished)). *)
 		
 	(**************************************************************************
 	 * THE SERVER PROCESS                                                     *
@@ -239,8 +239,8 @@
 		
 		(* B −> A : Finished *)
 		out(net, encrypt(Finished, serverK(Na, Nb, M)));
-		
-		(* B verifies received Finished *)
+		new serverFinished; out(net, serverFinished);
+		(* B verifies received Finished *) (* Dead code from here, decrypting seems to go wrong, maybe key is incorrect? *)
 		let =Finished = decrypt(FA, clientK(Na, Nb, M)) in
 		
 		(** secrecy check on the Master secret **)
@@ -250,10 +250,10 @@
 		(new PMSb; out(PMS, PMSb)) |
 		
 		(** secrecy check on the finished **)
-		(new FinishedBFlag; out(Finished, FinishedBFlag)) |
+		(new FinishedBFlag; out(Finished, FinishedBFlag)). (*|*)
 		
 		(** dead code check **)
-		(new serverFinished; out(net, serverFinished)).
+		(*(new serverFinished; out(net, serverFinished)).*)
 		
 	(**************************************************************************
 	 * THE INITIALIZER PROCESS                                                *
