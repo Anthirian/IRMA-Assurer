@@ -45,6 +45,7 @@ An IRMA (smart) card is the physical container of attributes. As you can see bel
 The passport is a travel document issued by a country's government that certifies the identity and nationality of its holder for the purpose of international travel~\cite{passportdefinition}. A biometric passport is an upgraded version that contains biometric information that can be used to authenticate the identity of travelers. This information is stored on an embedded chip that can be read using contactless smart card technology. Passports that feature such a chip generally feature the symbol shown in figure~\ref{fig:biometricslogo} on the cover. The data stored on the passport chip needs to be protected from modification, cloning, eavesdropping, etc. For this purpose several protection mechanisms have been implemented. Each of these mechanisms exist alongside each other and protect against different types of attacks. This section provides a brief overview of the various security protocols supported by passports, i.e. PA, BAC, SM and AA as specified by ICAO in~\cite{icao} as well as EAC as specified in~\cite{bsi}. 
 
 \subsubsection{Passive Authentication}
+\label{subsubsec:pa}
 Passive Authentication (PA) is not actually a protocol. It simply indicates that the chip makes use of digital signatures of its data. PA involves the terminal reading the data and verifying both its hash and signature. PA is the only `protocol' that is ICAO mandatory; all other protocols are optional~\cite{mostowski2010electronic}.
 
 \subsubsection{Basic Access Control}
