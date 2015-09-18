@@ -138,37 +138,36 @@
 		let CV = sign((CertificateVerify, cvHash), SKc) in out(net, CV);
 		
 		(* Compute the pre-master secret (g^xy) *)
-		let PMS = f(GY, X) in
+		let PMS = f(X, GY) in
 		
 		(* A calculates the Master secret M *)
 		let M = PRF((PMS, Na, Nb)) in
 		
 		(* A calculates Finished *)
-		let Finished = hash((CH, SH, SC, CC, CKE, CV, M)) in
+		let Finished = hash((CH, SH, SC, SKE, CC, CKE, CV, M)) in
 		
 		(* A −> B : Finished *)
 		out(net, encrypt(Finished, clientK(Na, Nb, M)));
 				
 		(* B −> A : Finished *)
 		in(net, FB);
-		new clientFinished; out(net, clientFinished);
-		(* A verifies received finished *) (* Dead code from here, decrypting seems to go wrong, maybe key is incorrect? *)
+		(* A verifies received finished *)
 		let =Finished = decrypt(FB, serverK(Na, Nb, M)) in
 		
 		(** end server authentication **)
 		event endServerAuth(A, B, Finished);
 		
 		(** secrecy check on the Master secret **)
-		(new MSa; out(M, MSa)) |
+		((new MSa; out(M, MSa)) |
 		
 		(** secrecy check on the Pre-Master Secret **)
 		(new PMSa; out(PMS, PMSa)) |
 		
 		(** secrecy check on the Finished message **)
-		(new FinishedAFlag; out(Finished, FinishedAFlag)). (* | *)
+		(new FinishedAFlag; out(Finished, FinishedAFlag)) |
 		
 		(** dead code check **)
-		(* (new clientFinished; out(net, clientFinished)). *)
+		(new clientFinished; out(net, clientFinished))).
 		
 	(**************************************************************************
 	 * THE SERVER PROCESS                                                     *
@@ -239,21 +238,21 @@
 		
 		(* B −> A : Finished *)
 		out(net, encrypt(Finished, serverK(Na, Nb, M)));
-		new serverFinished; out(net, serverFinished);
-		(* B verifies received Finished *) (* Dead code from here, decrypting seems to go wrong, maybe key is incorrect? *)
+
+		(* B verifies received Finished *)
 		let =Finished = decrypt(FA, clientK(Na, Nb, M)) in
 		
 		(** secrecy check on the Master secret **)
-		(new MSb; out(M, MSb)) |
+		((new MSb; out(M, MSb)) |
 		
 		(** secrecy check on the Pre-Master Secret **)
 		(new PMSb; out(PMS, PMSb)) |
 		
 		(** secrecy check on the finished **)
-		(new FinishedBFlag; out(Finished, FinishedBFlag)). (*|*)
+		(new FinishedBFlag; out(Finished, FinishedBFlag)) |
 		
 		(** dead code check **)
-		(*(new serverFinished; out(net, serverFinished)).*)
+		(new serverFinished; out(net, serverFinished))).
 		
 	(**************************************************************************
 	 * THE INITIALIZER PROCESS                                                *
