@@ -92,9 +92,6 @@
 		
 		let SKc = enc(keypair) in
 		let PKc = dec(keypair) in
-			
-		(** Replication to model arbitrary sessions **)
-		!
 		
 		(** Get the server’s name, perhaps as user input **)
 		in(net, B);
@@ -102,17 +99,14 @@
 		(* A generates fresh nonce Na *)
 		new Na;
 		
-		(* A determines Sid, session is randomly generated in basic model *)
-		new Sid;
-		
 		(* A chooses options Pa, options are just random data for our model *)
 		new Pa;
 		
 		(* A −> B : ClientHello *)
-		let CH = (ClientHello, A, Na, Sid, Pa) in out(net, CH);
+		let CH = (ClientHello, A, Na, Pa) in out(net, CH);
 		
 		(* B −> A : ServerHello *)
-		in(net, SH); let (=ServerHello, Nb, =Sid, Pb) = SH in
+		in(net, SH); let (=ServerHello, Nb, Pb) = SH in
 		
 		(* B −> A : ServerCertificate *)
 		in(net, SC); let (=ServerCertificate, serverCert) = SC in
@@ -183,7 +177,7 @@
 		!
 		
 		(* A −> B : ClientHello *)
-		in(net, CH); let (=ClientHello, A, Na, Sid, Pa) = CH in
+		in(net, CH); let (=ClientHello, A, Na, Pa) = CH in
 		
 		(* B generates fresh nonce Nb *)
 		new Nb;
@@ -192,7 +186,7 @@
 		new Pb;
 		
 		(* B −> A : ServerHello *)
-		let SH = (ServerHello, Nb, Sid, Pb) in out(net, SH);
+		let SH = (ServerHello, Nb, Pb) in out(net, SH);
 		
 		(* B −> A : ServerCertificate *)
 		let SC = (ServerCertificate, serverCert) in out(net, SC);
