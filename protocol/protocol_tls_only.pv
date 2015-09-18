@@ -75,88 +75,6 @@
 	query attacker: serverFinished.
 
 	(**************************************************************************
-	 * CLIENT PROCESS, this client is the initiator of the protocol.          *
-	 **************************************************************************)
-	let client =
-		(** Initial agent data from a trusted channel **)
-		in(clientInit, (A, keypair, clientCert));
-		
-		let SKc = enc(keypair) in
-		
-		(** Get the server’s name, perhaps as user input **)
-		in(net, B);
-		
-		(* A generates fresh nonce Na *)
-		new Na;
-		
-		(* Supported cipher suites and compression methods *)
-		new SupportedOptions;
-		
-		(* A −> B : ClientHello *)
-		let CH = (ClientHello, A, Na, SupportedOptions) in out(net, CH);
-		
-		(* B −> A : ServerHello *)
-		in(net, SH); let (=ServerHello, =B, Nb, SelectedOptions) = SH in
-		
-		(* B −> A : ServerCertificate *)
-		in(net, SC); let (=ServerCertificate, serverCert) = SC in
-		
-		(* Receiving Server DH Key Parameters and checking integrity *)
-		in(net, SKE); let (=ServerKeyExchange, g, N, GY, DHSignature) = SKE in
-		let unsignKey = verify(serverCert, B) in
-		let (=Na, =Nb, =g, =N, =GY) = unsign(DHSignature, unsignKey) in
-		
-		(* A −> B: ClientCertificate *)
-		let CC = (ClientCertificate, clientCert) in out(net, CC);
-		
-		(* A −> B : ClientKeyExchange *)
-		new X;
-		let CKE = (ClientKeyExchange, exp(g, X)) in out(net, CKE);
-		
-		let cvHash = hash((CH, SH, SC, SKE, CC, CKE)) in
-		
-		(** begin client authentication **)
-		event beginClientAuth(A, B, cvHash);
-		
-		(* A −> B: CertificateVerify *)
-		let CV = sign((CertificateVerify, cvHash), SKc) in out(net, CV);
-		
-		(* Compute the pre-master secret (g^xy) *)
-		let PMS = exp(GY, X) in
-		
-		(* A calculates the Master secret M *)
-		let M = PRF((PMS, Na, Nb)) in
-		
-		(* A calculates Finished *)
-		let Finished = hash((CH, SH, SC, SKE, CC, CKE, CV, M)) in
-		
-		(* A −> B : Finished *)
-		out(net, encrypt(Finished, clientK(Na, Nb, M)));
-				
-		(* B −> A : Finished *)
-		in(net, FB);
-		(* A verifies received finished *)
-		let =Finished = decrypt(FB, serverK(Na, Nb, M)) in
-		
-		(** end server authentication **)
-		event endServerAuth(A, B, Finished);
-		
-		(* Secrecy checks *)
-		(
-			(** secrecy check on the Master secret **)
-			(new MSa; out(M, MSa)) |
-		
-			(** secrecy check on the Pre-Master Secret **)
-			(new PMSa; out(PMS, PMSa)) |
-		
-			(** secrecy check on the Finished message **)
-			(new FinishedAFlag; out(Finished, FinishedAFlag)) |
-		
-			(** dead code check **)
-			(new clientFinished; out(net, clientFinished))
-		).
-		
-	(**************************************************************************
 	 * THE SERVER PROCESS                                                     *
 	 **************************************************************************)
 	let server =
@@ -240,6 +158,87 @@
 		
 			(** dead code check **)
 			(new serverFinished; out(net, serverFinished))
+		).
+	(**************************************************************************
+	 * CLIENT PROCESS, this client is the initiator of the protocol.          *
+	 **************************************************************************)
+	let client =
+		(** Initial agent data from a trusted channel **)
+		in(clientInit, (A, keypair, clientCert));
+		
+		let SKc = enc(keypair) in
+		
+		(** Get the server’s name, perhaps as user input **)
+		in(net, B);
+		
+		(* A generates fresh nonce Na *)
+		new Na;
+		
+		(* Supported cipher suites and compression methods *)
+		new SupportedOptions;
+		
+		(* A −> B : ClientHello *)
+		let CH = (ClientHello, A, Na, SupportedOptions) in out(net, CH);
+		
+		(* B −> A : ServerHello *)
+		in(net, SH); let (=ServerHello, =B, Nb, SelectedOptions) = SH in
+		
+		(* B −> A : ServerCertificate *)
+		in(net, SC); let (=ServerCertificate, serverCert) = SC in
+		
+		(* Receiving Server DH Key Parameters and checking integrity *)
+		in(net, SKE); let (=ServerKeyExchange, g, N, GY, DHSignature) = SKE in
+		let unsignKey = verify(serverCert, B) in
+		let (=Na, =Nb, =g, =N, =GY) = unsign(DHSignature, unsignKey) in
+		
+		(* A −> B: ClientCertificate *)
+		let CC = (ClientCertificate, clientCert) in out(net, CC);
+		
+		(* A −> B : ClientKeyExchange *)
+		new X;
+		let CKE = (ClientKeyExchange, exp(g, X)) in out(net, CKE);
+		
+		let cvHash = hash((CH, SH, SC, SKE, CC, CKE)) in
+		
+		(** begin client authentication **)
+		event beginClientAuth(A, B, cvHash);
+		
+		(* A −> B: CertificateVerify *)
+		let CV = sign((CertificateVerify, cvHash), SKc) in out(net, CV);
+		
+		(* Compute the pre-master secret (g^xy) *)
+		let PMS = exp(GY, X) in
+		
+		(* A calculates the Master secret M *)
+		let M = PRF((PMS, Na, Nb)) in
+		
+		(* A calculates Finished *)
+		let Finished = hash((CH, SH, SC, SKE, CC, CKE, CV, M)) in
+		
+		(* A −> B : Finished *)
+		out(net, encrypt(Finished, clientK(Na, Nb, M)));
+				
+		(* B −> A : Finished *)
+		in(net, FB);
+		(* A verifies received finished *)
+		let =Finished = decrypt(FB, serverK(Na, Nb, M)) in
+		
+		(** end server authentication **)
+		event endServerAuth(A, B, Finished);
+		
+		(* Secrecy checks *)
+		(
+			(** secrecy check on the Master secret **)
+			(new MSa; out(M, MSa)) |
+		
+			(** secrecy check on the Pre-Master Secret **)
+			(new PMSa; out(PMS, PMSa)) |
+		
+			(** secrecy check on the Finished message **)
+			(new FinishedAFlag; out(Finished, FinishedAFlag)) |
+		
+			(** dead code check **)
+			(new clientFinished; out(net, clientFinished))
 		).
 		
 	(**************************************************************************
