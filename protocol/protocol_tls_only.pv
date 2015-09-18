@@ -51,9 +51,9 @@
 	reduc verify(cert(x, y), x) = y.
 		
 	(* Diffie-Hellman functions *)
-	fun f/2.
-	fun g/1.
-	equation f(x, g(y)) = f(y, g(x)).
+	fun g/0. 										(* Generator of the group (constant) *)
+	fun exp/2.										(* Exponentiation *)
+	equation exp(exp(g, x), y) = exp(exp(g, y), x). (* Equality property *)
 
 	(**************************************************************************
 	 * QUERIES 																  *
@@ -118,16 +118,16 @@
 		in(net, SC); let (=ServerCertificate, serverCert) = SC in
 		
 		(* Receiving Server DH Key Parameters and checking integrity *)
-		in(net, SKE); let (=ServerKeyExchange, G, N, GY, DHSignature) = SKE in
+		in(net, SKE); let (=ServerKeyExchange, g, N, GY, DHSignature) = SKE in
 		let unsignKey = verify(serverCert, B) in
-		let (=Na, =Nb, =G, =N, =GY) = unsign(DHSignature, unsignKey) in
+		let (=Na, =Nb, =g, =N, =GY) = unsign(DHSignature, unsignKey) in
 		
 		(* A −> B: ClientCertificate *)
 		let CC = (ClientCertificate, clientCert) in out(net, CC);
 		
 		(* A −> B : ClientKeyExchange *)
 		new X;
-		let CKE = (ClientKeyExchange, g(X)) in out(net, CKE);
+		let CKE = (ClientKeyExchange, exp(g, X)) in out(net, CKE);
 		
 		let cvHash = hash((CH, SH, SC, SKE, CC, CKE)) in
 		
@@ -138,7 +138,7 @@
 		let CV = sign((CertificateVerify, cvHash), SKc) in out(net, CV);
 		
 		(* Compute the pre-master secret (g^xy) *)
-		let PMS = f(X, GY) in
+		let PMS = exp(GY, X) in
 		
 		(* A calculates the Master secret M *)
 		let M = PRF((PMS, Na, Nb)) in
@@ -198,12 +198,11 @@
 		let SC = (ServerCertificate, serverCert) in out(net, SC);
 		
 		(* Generate Diffie-Hellman Key Exchange parameters *)
-		new G; (* Generator, public *)
 		new N; (* Modulus (prime), public *)
 		new Y; (* Server's secret exponent *)
 		
 		(* B -> A: ServerKeyExchange *)
-		let SKE = (ServerKeyExchange, G, N, g(Y), sign((Na, Nb, G, N, g(Y)), SKs)) in out(net, SKE);
+		let SKE = (ServerKeyExchange, g, N, exp(g, Y), sign((Na, Nb, g, N, exp(g, Y)), SKs)) in out(net, SKE);
 		
 		(* A −> B : ClientCertificate *)
 		in(net, CC); let (=ClientCertificate, clientCert) = CC in
@@ -222,7 +221,7 @@
 		event endClientAuth(A, B, cvHash);
 		
 		(* Calculating the Pre-Master Secret *)
-		let PMS = f(Y, GX) in
+		let PMS = exp(GX, Y) in
 		
 		(* A −> B : Finished *)
 		in(net, FA);
