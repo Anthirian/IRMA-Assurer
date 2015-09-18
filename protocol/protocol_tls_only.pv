@@ -96,7 +96,7 @@
 		let CH = (ClientHello, A, Na, SupportedOptions) in out(net, CH);
 		
 		(* B −> A : ServerHello *)
-		in(net, SH); let (=ServerHello, Nb, SelectedOptions) = SH in
+		in(net, SH); let (=ServerHello, =B, Nb, SelectedOptions) = SH in
 		
 		(* B −> A : ServerCertificate *)
 		in(net, SC); let (=ServerCertificate, serverCert) = SC in
@@ -178,7 +178,7 @@
 		new SelectedOptions;
 
 		(* B −> A : ServerHello *)
-		let SH = (ServerHello, Nb, SelectedOptions) in out(net, SH);
+		let SH = (ServerHello, B, Nb, SelectedOptions) in out(net, SH);
 		
 		(* B −> A : ServerCertificate *)
 		let SC = (ServerCertificate, serverCert) in out(net, SC);
