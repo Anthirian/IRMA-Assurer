@@ -19,23 +19,21 @@
 	free ClientHello, ClientKeyExchange, ClientCertificate, ServerHello, ServerCertificate, CertificateVerify, ServerKeyExchange.
 
 	(* Agent initialization is done over a private channel *)
-	private free initialClientData, initialServerData.
+	private free clientInit, serverInit.
 
 	(* The cryptographic constructors *)
 	fun hash/1. 	(* hashing *)
 	fun encrypt/2. 	(* symmetric key encryption *)
-	fun pencrypt/2. (* Public key encryption *)
 	fun sign/2. 	(* Public key signing *)
 	fun enc/1. 		(* Extracts encryption key from a keypair *)
 	fun dec/1. 		(* Extracts decryption key from a keypair *)
 
 	(* The cryptographic destructors *)
 	reduc decrypt(encrypt(x, y), y) = x.
-	reduc pdecrypt(pencrypt(x, enc(y)), dec(y)) = x.
 	reduc unsign(sign(x, enc(y)), dec(y)) = x.
 
 	(* A constructor that maps agents to their secret keypairs *)
-	private fun signkeypair/1.
+	private fun keypair/1.
 
 	(* Pseudo−random−number function *)
 	fun PRF/1.
@@ -50,8 +48,8 @@
 	(* If cert(x, y) establishes x as owner of key y, y is returned *)
 	reduc verify(cert(x, y), x) = y.
 		
-	(* Diffie-Hellman functions *)
-	fun g/0. 										(* Generator of the group (constant) *)
+	(* Diffie-Hellman computations *)
+	fun g/0. 										(* Generator of the group (a constant) *)
 	fun exp/2.										(* Exponentiation *)
 	equation exp(exp(g, x), y) = exp(exp(g, y), x). (* Equality property *)
 
@@ -88,10 +86,9 @@
 	 **************************************************************************)
 	let client =
 		(** Initial agent data from a trusted channel **)
-		in(initialClientData, (A, keypair, clientCert));
+		in(clientInit, (A, keypair, clientCert));
 		
 		let SKc = enc(keypair) in
-		let PKc = dec(keypair) in
 		
 		(** Get the server’s name, perhaps as user input **)
 		in(net, B);
@@ -99,14 +96,14 @@
 		(* A generates fresh nonce Na *)
 		new Na;
 		
-		(* A chooses options Pa, options are just random data for our model *)
-		new Pa;
+		(* Supported cipher suites and compression methods *)
+		new SupportedOptions;
 		
 		(* A −> B : ClientHello *)
-		let CH = (ClientHello, A, Na, Pa) in out(net, CH);
+		let CH = (ClientHello, A, Na, SupportedOptions) in out(net, CH);
 		
 		(* B −> A : ServerHello *)
-		in(net, SH); let (=ServerHello, Nb, Pb) = SH in
+		in(net, SH); let (=ServerHello, Nb, SelectedOptions) = SH in
 		
 		(* B −> A : ServerCertificate *)
 		in(net, SC); let (=ServerCertificate, serverCert) = SC in
@@ -151,42 +148,44 @@
 		(** end server authentication **)
 		event endServerAuth(A, B, Finished);
 		
-		(** secrecy check on the Master secret **)
-		((new MSa; out(M, MSa)) |
+		(* Secrecy checks *)
+		(
+			(** secrecy check on the Master secret **)
+			(new MSa; out(M, MSa)) |
 		
-		(** secrecy check on the Pre-Master Secret **)
-		(new PMSa; out(PMS, PMSa)) |
+			(** secrecy check on the Pre-Master Secret **)
+			(new PMSa; out(PMS, PMSa)) |
 		
-		(** secrecy check on the Finished message **)
-		(new FinishedAFlag; out(Finished, FinishedAFlag)) |
+			(** secrecy check on the Finished message **)
+			(new FinishedAFlag; out(Finished, FinishedAFlag)) |
 		
-		(** dead code check **)
-		(new clientFinished; out(net, clientFinished))).
+			(** dead code check **)
+			(new clientFinished; out(net, clientFinished))
+		).
 		
 	(**************************************************************************
 	 * THE SERVER PROCESS                                                     *
 	 **************************************************************************)
 	let server =
 		(** Initial agent data from a trusted channel **)
-		in(initialServerData, (B, keypair, serverCert));
+		in(serverInit, (B, keypair, serverCert));
 		
-		let PKs = dec(keypair) in
 		let SKs = enc(keypair) in
 		
 		(** Replication to model arbitrary sessions **)
 		!
 		
 		(* A −> B : ClientHello *)
-		in(net, CH); let (=ClientHello, A, Na, Pa) = CH in
+		in(net, CH); let (=ClientHello, A, Na, SupportedOptions) = CH in
 		
 		(* B generates fresh nonce Nb *)
 		new Nb;
 		
-		(* B chooses options Pb, just some random data in our model *)
-		new Pb;
-		
+		(* Server picks a cipher suite and compression method from SupportedOptions *)
+		new SelectedOptions;
+
 		(* B −> A : ServerHello *)
-		let SH = (ServerHello, Nb, Pb) in out(net, SH);
+		let SH = (ServerHello, Nb, SelectedOptions) in out(net, SH);
 		
 		(* B −> A : ServerCertificate *)
 		let SC = (ServerCertificate, serverCert) in out(net, SC);
@@ -235,29 +234,36 @@
 		(* B verifies received Finished *)
 		let =Finished = decrypt(FA, clientK(Na, Nb, M)) in
 		
-		(** secrecy check on the Master secret **)
-		((new MSb; out(M, MSb)) |
+		(* Secrecy checks *)
+		(
+			(** secrecy check on the Master secret **)
+			(new MSb; out(M, MSb)) |
 		
-		(** secrecy check on the Pre-Master Secret **)
-		(new PMSb; out(PMS, PMSb)) |
+			(** secrecy check on the Pre-Master Secret **)
+			(new PMSb; out(PMS, PMSb)) |
 		
-		(** secrecy check on the finished **)
-		(new FinishedBFlag; out(Finished, FinishedBFlag)) |
+			(** secrecy check on the finished **)
+			(new FinishedBFlag; out(Finished, FinishedBFlag)) |
 		
-		(** dead code check **)
-		(new serverFinished; out(net, serverFinished))).
+			(** dead code check **)
+			(new serverFinished; out(net, serverFinished))
+		).
 		
 	(**************************************************************************
 	 * THE INITIALIZER PROCESS                                                *
 	 **************************************************************************)
 	let initializer =
-		new C; (* Generate agent name *)
-		new S; (* Generate agent name *)
-		let clientKeyPair = signkeypair(C) in (* Generate client key *)
-		let serverKeyPair = signkeypair(S) in (* Generate server key *)
-		let clientCert = cert(C, dec(clientKeyPair)) in
-		let serverCert = cert(S, dec(serverKeyPair)) in
-		( out(initialClientData, (C, clientKeyPair, clientCert)) | out(initialServerData, (S, serverKeyPair, serverCert)) | out(net, S) ).
+		new C; (* Generate agent name (unique) *)
+		new S; (* Generate agent name (unique) *)
+		let clientKeypair = keypair(C) in (* Generate client key *)
+		let serverKeypair = keypair(S) in (* Generate server key *)
+		let clientCert = cert(C, dec(clientKeypair)) in
+		let serverCert = cert(S, dec(serverKeypair)) in
+		(
+			out(clientInit, (C, clientKeypair, clientCert)) |
+			out(serverInit, (S, serverKeypair, serverCert)) |
+			out(net, S) (* Inform clients of the central server (e.g. IP address) *)
+		).
 		
 	(**************************************************************************
 	 * THE SYSTEM                                                             *
