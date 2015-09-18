@@ -1,0 +1,18 @@
+# Project and build files
+*.aux
+*.metadata/*
+*.blg
+*.bbl
+*.bcf
+*-blx.bib
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.run.xml
+report.pdf
+*.synctex.gz
+*.tcp
+*.tex~
+*.toc
+*.tps

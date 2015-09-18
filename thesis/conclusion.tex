@@ -1,0 +1,12 @@
+\section{Conclusion}
+
+\section{Future work}
+
+Client moet dienen als doorgeefluik voor attributen en dus niet kunnen zien welke hij op de kaart plaatst. Hiertoe maken we een niet-transparante tunnel van server naar IRMA kaart.
+
+\subsection{Implementation}
+Denk aan
+\begin{itemize}
+	\item Bouncy Castle voor het gebruik van TLS 1.2, of anders JSSE. JSSE zit standaard in elke Java distro. Probleem met Bouncy Castle is dat het mogelijk niet hoger kan dan TLS 1.0~\cite{sslanalysis} (hoofdstuk 4). 
+\end{itemize}
+

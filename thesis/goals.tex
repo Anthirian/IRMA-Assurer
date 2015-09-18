@@ -1,0 +1,53 @@
+\section{Goals}
+\label{sec:goals}
+This chapter focuses on the goals of the IRMA Assurer protocol.
+
+\ldots
+
+The protocol should ensure the clients are authenticated to the server before the server accepts any type of request. Similarly, the server should be authenticated to the client before a client sends any type of request. These properties should prevent susceptibility to man-in-the-middle attacks. Furthermore both the passport data as well as the attribute data sent between client and server should be encrypted with cryptographically strong keys to prevent the possibility of an attacker learning or modifying any of the data in transit. These keys should be ephemeral in order to provide perfect forward secrecy, meaning an attacker cannot derive previous session keys even if private keys are obtained (see section~\ref{subsubsec:pfs}). Also, the protocol should not allow or facilitate storing attribute data internally for repeated use. All attribute data should be stored on the corresponding IRMA card and securely deleted immediately after. Finally the protocol should be designed in such a way that the connection to the server will not cause a denial of service.
+
+To summarize the protocol should offer:
+\begin{itemize}
+  \item Authentication of client to server
+  \item Authentication of server to client
+  \item Integrity of passport data sent between server and client
+  \item Confidentiality of passport data sent between server and client
+  \item Integrity of attribute data sent between server and client
+  \item Confidentiality of attribute data sent between server and client
+  \item Perfect forward secrecy of all communication between server and client
+  \item Resistance against replaying of attribute data (\textsc{TODO: Deels afgevangen door policies: tablets worden in kluis bewaard, etc.})
+\end{itemize}
+
+\subsection{Attack scenarios}
+This section describes possible attack scenarios with respect to the goals described above. These are attacks the protocol should be resistant against. The possible impact of such an attack is described directly after the attack itself.
+
+\begin{itemize}
+	\item An attacker reads the passport data sent between client and server. This attack causes personally identifiable information to be learned, leading to a breach in confidentiality. 
+  \item An attacker modifies the passport data sent between client and server. This attack causes the server to receive data inconsistent with the passport data sent by the client, at worst leading to the issuance of attribute data not corresponding to the passport.
+  \item An attacker modifies signed attribute data. \textsc{TODO: Impact? Zelfde als hierboven?}
+  \item An attacker intercepts attribute data and stores it onto his own card. This attack causes false issuance of attribute data, in turn leading to possible fraud.
+  \item An attacker submits forged passport data to the server. This attack causes the server to possibly provide attribute data for fictitous people, in turn leading to possible fraud. Because the server verifies all passport data before providing attribute data, it may also be possible to query the server, guessing correct personally identifiyable information.
+  \item An attacker intercepts and later reuses attribute data already stored onto a card for storing on another card. This attack causes the attacker to be able to commit fraud.
+  \item An attacker replays the sending of passport data to obtain another identical set of attribute data. This attack effectively facilitates the cloning of cards, provided the server does not constrain the number of times attributes are given out.
+  \item An attacker uses different attributes from different people to authenticate. This attack allows combining attribute data to achieve the required combination for authentication. 
+  \item \textsc{TODO: Side-channel attacks?}
+  \item \textsc{TODO: Denial of Service?}
+  \item \textsc{Authenticated Encryption niet expliciet, maar wordt effectief wel aan voldaan. Om het niet te moeilijk te maken heeft Bart gezegd het niet expliciet te doen.}
+\end{itemize}
+
+\subsubsection{Perfect Forward Secrecy}
+\label{subsubsec:pfs}
+In key exchange protocols there is a property called Perfect Forward Secrecy (PFS) that provides a more secure way of encryption because the key is deleted immediately after use, and therefore cannot be stolen in an attempt to decrypt intercepted traffic encrypted with this session key. More specifically, the exposure of long-term keying material, used in the protocol to negotiate session keys, does not compromise the secrecy of session keys established before the exposure. This property is especially relevant to scenarios in which exchanged session keys require secrecy protection beyond their lifetime, such as in the case of session keys used for data encryption. This means it is relevant in the IRMA Assurer protocol, since a lot of sensitive information is being transfered and therefore needs to be kept secret.
+
+The most common way to achieve PFS in a key-exchange protocol is by using the Diffie-Hellman key agreement with ephemeral exponents to establish the value of a session key, while confining the use of the longterm keys (such as private signature keys) to the purpose of authenticating the exchange (see authentication). One essential element for achieving PFS with the Diffie-Hellman exchange is the use of ephemeral exponents which are erased from memory as soon as the exchange is complete. This should include the erasure of any other information from which the value of these exponents can be derived such as the state of a pseudo-random generator used to compute these exponents~\cite{PFS}.
+
+\subsection{Cryptographic properties}
+To summarize the previous sections, the protocol should satisfy the following cryptographic properties.
+\begin{itemize}
+  \item Authenticity
+  \item Accountability
+  \item Confidentiality
+  \item Integrity
+  \item \scriptsize Availability
+\end{itemize}
+
