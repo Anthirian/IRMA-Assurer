@@ -124,7 +124,7 @@ There are many reasons for this particular ordering. We highlight the main reaso
 
 Galois Counter Mode (GCM) is an Authenticated Encryption (AE) algorithm. AE algorithms are designed to provide both data authenticity (integrity) and confidentiality. Since both are goals of Assurer we favor GCM over CBC, but do not require it.
 
-For more information about the reasons behind this ordering please see~\cite{mozilla}.
+For more information about the reasons behind this ordering please see~\cite{mozilla}. In August 2015 the NSA has issued a new version of their Suite B Cryptography document, in which they withdraw P-256, SHA-256, and AES-128 in order to start the transition to quantum resistant algorithms. Mozilla however does not yet have an updated document.
 
 \subsubsection{DH parameters}
 Unfortunately, some widely used clients lack support for ECDHE and must then rely on DHE to provide perfect forward secrecy. This is true for Android $< 3.0.0$, Java $< 7$ and OpenSSL $< 1.0.0$, among others. Nowadays many, if not all, devices run Android versions higher than 3.0.0, so we don't expect to see issues here. However the Java requirement could lead to issues when implementing Assurer as an Android app, mainly because of the many IRMA-related dependencies that such an app has to deal with. These dependencies may not support Java 7 or 8 yet. Adding to that, Java 6 and 7 do not support Diffie-Hellman parameters larger than 1024 bits. This has consequences for the PFS requirement of Assurer. The only way a secure connection can be achieved from a Java 6 client is to use DHE cipher suites and use 1024-bit groups.
