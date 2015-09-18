@@ -28,7 +28,7 @@
 	(* A constructor that maps agents to their secret keypairs *)
 	private fun keypair/1.
 
-	(* Pseudo−random−number function *)
+	(* Pseudo−random−number function for generating TLS session key randomness *)
 	fun PRF/1.
 
 	(* Symmetric key construction *)
@@ -38,7 +38,7 @@
 	(* Certificates *)
 	private fun cert/2.
 
-	(* If cert(x, y) establishes x as owner of key y, y is returned *)
+	(* If cert(x, y) establishes x as owner of key y, y is returned, i.e. this retrieves the public key from the server's certificate *)
 	reduc verify(cert(x, y), x) = y.
 		
 	(* Diffie-Hellman computations *)
@@ -81,7 +81,10 @@
 		(** Initial agent data from a trusted channel **)
 		in(serverInit, (B, keypair, serverCert));
 		
-		let SKs = enc(keypair) in	
+
+
+		let SKs = enc(keypair) in
+		
 		(** Replication to model arbitrary sessions **)
 		!
 		
@@ -110,10 +113,13 @@
 		(* Create a list of acceptable certificate types and CAs *)
 		new Acceptable_certificate_types;
 		new Acceptable_certificate_authorities;
+		
 		(* Sending ClientCertificateRequest *)
 		let CCR = (ClientCertificateRequest, Acceptable_certificate_types, Acceptable_certificate_authorities) in out(net, CCR);
+		
 		(* Sending ServerHello Done *)
 		let SHD = ServerHelloDone in out(net, SHD);
+		
 		(* A −> B : ClientCertificate *)
 		in(net, CC); let (=ClientCertificate, clientCert) = CC in
 		
@@ -135,6 +141,7 @@
 		
 		(* Receiving ClientChangeCipherSpec *)
 		in(net, CCCS); let =ClientChangeCipherSpec = CCCS in
+		
 		(* A −> B : Finished *)
 		in(net, FA);
 			
@@ -149,6 +156,7 @@
 		
 		(* Sending ServerChangeCipherSpec, indicating a switch to the encryption negotiated above. Essentially just 1 byte *) 	
 		let SCCS = ServerChangeCipherSpec in out(net, SCCS);
+		
 		(* B −> A : Finished *)
 		out(net, encrypt(Finished, serverK(Na, Nb, M)));
 
@@ -178,7 +186,7 @@
 		in(clientInit, (A, keypair, clientCert));
 		
 		let SKc = enc(keypair) in
-				
+					
 		(** Get the server’s name, perhaps as user input **)
 		in(net, B);
 		
@@ -204,8 +212,10 @@
 		
 		(* Receiving ClientCertificateRequest *)
 		in(net, CCR); let (=ClientCertificateRequest, Acceptable_certificate_types, Acceptable_certificate_authorities) = CCR in
+		
 		(* Receiving ServerHelloDone *)
 		in(net, SHD); let =ServerHelloDone = SHD in
+		
 		(* A −> B: ClientCertificate *)
 		let CC = (ClientCertificate, clientCert) in out(net, CC);
 		
@@ -225,11 +235,12 @@
 		(* Compute the pre-master secret (g^xy) *)
 		let PMS = exp(GY, X) in
 		
-		(* A calculates the Master secret M *)		
+		(* Compute the master secret, technically also requires "master secret" to be part of the arguments for hashing *)
 		let M = PRF((PMS, Na, Nb)) in
 		
 		(* Sending ClientChangeCipherSpec, indicating a switch to the encryption negotiated above. Essentially just 1 byte *)
 		let CCCS = ClientChangeCipherSpec in out(net, CCCS);
+		
 		(* Compute hash and session key *)
 		let Finished = hash((CH, SH, SC, SKE, CCR, SHD, CC, CKE, CV, CCCS, M)) in
 		
@@ -238,6 +249,7 @@
 				
 		(* Receiving ServerChangeCipherSpec, indicating a switch to the encryption negotiated above. Essentially just 1 byte *)
 		in(net, SCCS); let =ServerChangeCipherSpec = SCCS in
+		
 		(* B −> A : Finished *)
 		in(net, FB);
 		
@@ -270,11 +282,14 @@
 		new S; (* Generate agent name (unique) *)
 		let clientKeypair = keypair(C) in (* Generate client key *)
 		let serverKeypair = keypair(S) in (* Generate server key *)
+		
 		let clientCert = cert(C, dec(clientKeypair)) in
 		let serverCert = cert(S, dec(serverKeypair)) in
+
 		(
 			out(clientInit, (C, clientKeypair, clientCert)) |
 			out(serverInit, (S, serverKeypair, serverCert)) |
+			
 			out(net, S) (* Inform clients of the central server (e.g. IP address) *)
 		).
 		
