@@ -18,12 +18,12 @@
 	fun hash/1. 	(* hashing *)
 	fun encrypt/2. 	(* symmetric key encryption *)
 	fun sign/2. 	(* Public key signing *)
-	fun enc/1. 		(* Extracts encryption key from a keypair *)
-	fun dec/1. 		(* Extracts decryption key from a keypair *)
+	fun sk/1. 		(* Extracts secret key of a keypair *)
+	fun pk/1. 		(* Extracts public part of a keypair *)
 
 	(* The cryptographic destructors *)
 	reduc decrypt(encrypt(x, y), y) = x.
-	reduc unsign(sign(x, enc(y)), dec(y)) = x.
+	reduc unsign(sign(x, sk(y)), pk(y)) = x.
 
 	(* A constructor that maps agents to their secret keypairs *)
 	private fun keypair/1.
@@ -83,7 +83,7 @@
 		
 
 
-		let SKs = enc(keypair) in
+		let SKs = sk(keypair) in
 		
 		(** Replication to model arbitrary sessions **)
 		!
@@ -185,7 +185,7 @@
 		(** Initial agent data from a trusted channel **)
 		in(clientInit, (A, keypair, clientCert));
 		
-		let SKc = enc(keypair) in
+		let SKc = sk(keypair) in
 					
 		(** Get the server’s name, perhaps as user input **)
 		in(net, B);
@@ -283,8 +283,8 @@
 		let clientKeypair = keypair(C) in (* Generate client key *)
 		let serverKeypair = keypair(S) in (* Generate server key *)
 		
-		let clientCert = cert(C, dec(clientKeypair)) in
-		let serverCert = cert(S, dec(serverKeypair)) in
+		let clientCert = cert(C, pk(clientKeypair)) in
+		let serverCert = cert(S, pk(serverKeypair)) in
 
 		(
 			out(clientInit, (C, clientKeypair, clientCert)) |
