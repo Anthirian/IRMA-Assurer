@@ -12,20 +12,20 @@ free net.
 free ClientHello, ServerHello, ServerCertificate, ServerKeyExchange, ClientCertificateRequest, ServerHelloDone, ClientCertificate, ClientKeyExchange, CertificateVerify, ClientChangeCipherSpec, ClientFinished, ServerChangeCipherSpec, ServerFinished.
 
 (* Agent initialization is done over a private channel *)
-private free clientInit, serverInit.
+private free clientInit, serverInit, initChannel.
 
 (* The cryptographic constructors *)
 fun hash/1. 	(* hashing *)
 fun hmac/2.
 fun encrypt/2. 	(* symmetric key encryption *)
 fun sign/2. 	(* Public key signing *)
-fun enc/1. 	(* Extracts encryption key from a keypair *)
-fun dec/1. 	(* Extracts decryption key from a keypair *)
+fun sk/1. 	(* Extracts secret key of a keypair *)
+fun pk/1. 	(* Extracts public key of a keypair *)
 
 (* The cryptographic destructors *)
 
 reduc decrypt(encrypt(x, y), y) = x.
-reduc unsign(sign(x, enc(y)), dec(y)) = x.
+reduc unsign(sign(x, sk(y)), pk(y)) = x.
 
 (* A constructor that maps agents to their secret keypairs *)
 private fun keypair/1.
@@ -51,6 +51,9 @@ equation exp(exp(g, x), y) = exp(exp(g, y), x). (* Equality property *)
 (**************************************************************************
  * QUERIES 																  *
  **************************************************************************)
+ 
+ query attacker: test1.
+ query attacker: test2.
  
 (* secrecy Pre Master secret *)
 query attacker: PMSa.
@@ -88,11 +91,12 @@ query attacker: serverFinished.
  **************************************************************************)
 let Server =
 	(** Initial agent data from a trusted channel **)
-	in(serverInit, (B, keypair, serverCert));
+	in(serverInit, (B, serverKeypair, serverCert));
 	
-	in(initChannel, (=S, SKi, issuerCert)); (* TODO: Initialize issuer keypair over separate channel? *)
+	in(initChannel, (=B, issuerKeypair, issuerCert));
 	
-	let SKs = enc(keypair) in
+	let SKs = sk(serverKeypair) in (* Secret key used for communication *)
+	let SKi = sk(issuerKeypair) in (* Secret key used for signing of attributes *)
 	
 	(** Replication to model arbitrary sessions **)
 	!
@@ -171,15 +175,17 @@ let Server =
 	
 	(* B verifies received Finished *)
 	let =Finished = decrypt(FA, clientK(Na, Nb, M)) in
-		
-	(* Sending ServerFinished, using the newly negotiated encryption *)
-	out(net, encrypt((ServerFinished, Finished), sessionKey));
 	
 	(* End of TLS handshake *)	
 	
 	(* Set up a new secure channel encrypted with the newly generated session key *)
 	new s;
-	out(net, encrypt(s, sessionKey));
+	out(net, encrypt(s, serverK(Na, Nb, M)));
+	
+	(
+		new test2; out(s, test2)
+	) |
+	
 	
 	(* Start of application data *)
 	
@@ -187,13 +193,13 @@ let Server =
 	in(s, ClientPassport); let (EncryptedPassport, HMACPassport) = ClientPassport in
 	
 	(* Decrypt the passport data *)
-	let DecryptedPassport = decrypt(EncryptedPassport, sessionKey) in
+	let DecryptedPassport = decrypt(EncryptedPassport, clientK(Na, Nb, M)) in
 	
 	(* Verify the HMAC *)
-	let =HMACPassport = hmac(EncryptedPassport, sessionKey) in
+	let =HMACPassport = hmac(EncryptedPassport, clientK(Na, Nb, M)) in
 	
 	(* Verify the participants and store the nonce for after passport checks *)
-	let (Passport, =C, =S, Nonce) = DecryptedPassport in
+	let (Passport, =A, =B, Nonce) = DecryptedPassport in
 	
 	(* Split up passport and store public key *)
 	(* Note: If BAC is required, everything is inaccessible until BAC is performed *)
@@ -203,12 +209,12 @@ let Server =
 	(* Do Passive Authentication *)
 	let =SecurityObject = hash(DataGroups) in
 	
-	event endPassiveAuth(C, S, Passport);
+	event endPassiveAuth(A, B, Passport);
 	
 	(* Start Active Authentication by sending a challenge *)
 	new AAChallenge;
 	
-	event beginActiveAuth(C, S, AAChallenge);
+	event beginActiveAuth(A, B, AAChallenge);
 	
 	out(s, AAChallenge);
 	
@@ -226,16 +232,16 @@ let Server =
 	(* TODO: Issuer keypair is initialized, but not being received yet *)
 	let AttributeBasedCredential = sign(Characteristic, SKi) in
 	
-	event beginTransaction(C, S, AttributeBasedCredential);
+	event beginTransaction(A, B, AttributeBasedCredential);
 	
 	(* Create attribute data including participants and the previously received nonce *)
-	let AttributeData = (AttributeBasedCredential, C, S, Nonce) in
+	let AttributeData = (AttributeBasedCredential, A, B, Nonce) in
 	
 	(* Encrypt the attribute data *)
-	let EncryptedAttributes = encrypt(AttributeData, sessionKey) in
+	let EncryptedAttributes = encrypt(AttributeData, serverK(Na, Nb, M)) in
 	
 	(* Generate the HMAC over the encrypted data *)
-	let HMACAttributes = hmac(EncryptedAttributes, sessionKey) in
+	let HMACAttributes = hmac(EncryptedAttributes, serverK(Na, Nb, M)) in
 	
 	(* Send the encrypted data and its HMAC *)
 	let ABCs = (EncryptedAttributes, HMACAttributes) in out(s, ABCs);
@@ -264,9 +270,9 @@ let Server =
  **************************************************************************)
 let Client =
 	(** Initial agent data from a trusted channel **)
-	in(clientInit, (A, keypair, clientCert));
+	in(clientInit, (A, clientKeypair, clientCert));
 	
-	let SKc = enc(keypair) in
+	let SKc = sk(clientKeypair) in
 	
 	(** Get the server’s name, perhaps as user input **)
 	in(net, B);
@@ -343,7 +349,11 @@ let Client =
 	(* End of TLS handshake *)
 	
 	(* Receive the secure channel created by the server *)
-	in(net, newChannel); let s = decrypt(newChannel, sessionKey) in
+	in(net, newChannel); let s = decrypt(newChannel, serverK(Na, Nb, M)) in (* TODO: secure channel is not secret? *)
+	
+	(
+		new test; out(s, test)
+	) |
 	
 	(* Start of application data *)	
 	
@@ -351,31 +361,32 @@ let Client =
 	
 	(* Perform Passive + Active Authentication on the passport *)
 	
-	(* 
-	Passport has keypair. 
-	Private key stored in secure memory of chip. 
-	Public key stored in SOD file. 
-	Server obtains public key.
-	Server issues challenge.
-	Passport solves challenge using private key. 
-	Server checks result using public key
-	Active Authentication finished.
-	*)
+	(*
+	 * Passport has keypair.                        *
+	 * Private key stored in secure memory of chip. *
+	 * Public key stored in SOD file.               *
+	 * Server obtains public key.                   *
+	 * Server issues challenge.                     *
+	 * Passport solves challenge using private key. *
+	 * Server checks result using public key.       *
+	 * Active Authentication finished.              *
+	 *)
 	
 	(* "Create" passport *)
 	new DataGroups; (* 16 data groups in total *)
 	let SecurityObject = hash(DataGroups) in (* Contains hashes of all DG values *)
-	new keypair; (* Public key is technically stored in DG15 *)
-	let Passport = (DataGroups, SecurityObject, pk(keypair)) in
+	new P; (* Create new passport agent *)
+	let passportKeypair = keypair(P) in (* Public key is technically stored in DG15 *)
+	let Passport = (DataGroups, SecurityObject, pk(passportKeypair)) in
 	
-	event beginPassiveAuth(C, S, Passport);
+	event beginPassiveAuth(A, B, Passport); (* TODO: Add P to event? *)
 	
 	(* Encrypt the passport, reusing the session key *)
-	new nA; (* A fresh nonce *)
-	let EncryptedPassport = encrypt((Passport, C, S, nA), sessionKey) in
+	new Np; (* A fresh nonce *)
+	let EncryptedPassport = encrypt((Passport, A, B, Np), clientK(Na, Nb, M)) in
 	
 	(* Generate HMAC of the encrypted passport, again reusing the session key *)
-	let HMACPassport = hmac(EncryptedPassport, sessionKey) in
+	let HMACPassport = hmac(EncryptedPassport, clientK(Na, Nb, M)) in
 	
 	(* Send the entire passport data *)
 	let ClientPassport = (EncryptedPassport, HMACPassport) in out(s, ClientPassport);
@@ -386,7 +397,7 @@ let Client =
 	in(s, AAChallenge);
 	
 	(* Send response to AA challenge *)
-	let AAResponse = sign(AAChallenge, sk(keypair)) in out(s, AAResponse);
+	let AAResponse = sign(AAChallenge, sk(passportKeypair)) in out(s, AAResponse);
 	
 	(* End of Active Authentication *)
 	
@@ -396,18 +407,18 @@ let Client =
 	in(s, ABCs); let (EncryptedAttributes, HMACAttributes) = ABCs in
 	
 	(* When we receive attributes it is safe to assume active authentication succeeded *)
-	event endActiveAuth(C, S, AAChallenge);
+	event endActiveAuth(A, B, AAChallenge);
 	
 	(* Check the HMAC *)
-	let =HMACAttributes = hmac(EncryptedAttributes, sessionKey) in
+	let =HMACAttributes = hmac(EncryptedAttributes, serverK(Na, Nb, M)) in
 	
 	(* Decrypt the Attributes *)
-	let AttributeData = decrypt(EncryptedAttributes, sessionKey) in
+	let AttributeData = decrypt(EncryptedAttributes, serverK(Na, Nb, M)) in
 	
 	(* Verify the participants and the nonce and store the ABC(s) *)
-	let (AttributeBasedCredential, =C, =S, =nA) = AttributeData in
+	let (AttributeBasedCredential, =A, =B, =Np) = AttributeData in
 	
-	event endTransaction(C, S, AttributeBasedCredential);
+	event endTransaction(A, B, AttributeBasedCredential);
 	
 	(* End of ABC logic *)
 	
@@ -434,16 +445,16 @@ let Client =
 let initializer =
 	new C; (* Generate agent name (unique) *)
 	new S; (* Generate agent name (unique) *)
-	let clientKeypair = keypair(C) in (* Generate client key *)
-	let serverKeypair = keypair(S) in (* Generate server key *)
-	new issuerKeypair;
-	let clientCert = cert(C, dec(clientKeypair)) in
-	let serverCert = cert(S, dec(serverKeypair)) in
-	let issuerCert = cert(S, dec(issuerKeypair)) in
+	let clientKeypair = keypair(C) in (* Generate client keypair *) 
+	let serverKeypair = keypair(S) in (* Generate server keypair *)
+	let issuerKeypair = keypair(S) in (* Generate issuer keypair *) (* TODO: Check if we should use S here too *)
+	let clientCert = cert(C, pk(clientKeypair)) in
+	let serverCert = cert(S, pk(serverKeypair)) in
+	let issuerCert = cert(S, pk(issuerKeypair)) in
 	(
 		out(clientInit, (C, clientKeypair, clientCert)) |
 		out(serverInit, (S, serverKeypair, serverCert)) |
-		out(initChannel, (S, sk(issuerKeypair), issuerCert));
+		out(initChannel, (S, issuerKeypair, issuerCert)) |
 		out(net, S) (* Inform clients of the central server (e.g. IP address) *)
 	).
 	
@@ -451,4 +462,4 @@ let initializer =
  * THE SYSTEM                                                             *
  **************************************************************************)
 process
-	!initializer | !client | !server
+	!initializer | !Client | !Server
