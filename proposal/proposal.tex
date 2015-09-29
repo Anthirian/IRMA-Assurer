@@ -1,0 +1,132 @@
+\documentclass[a4paper, oneside]{scrartcl}
+
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{a4wide}
+\usepackage{parskip}
+\usepackage[colorlinks, linkcolor=black, urlcolor=black, citecolor=black, pdfpagemode=UseNone, pdfstartview=]{hyperref}
+
+\author{Geert Smelt\thanks{\href{mailto:gasmelt@student.ru.nl}{\nolinkurl{gasmelt@student.ru.nl}}}}
+\title{IRMA Assurer}
+\subtitle{Securely storing identity document chip data onto IRMA cards}
+\date{\today}
+\dedication{Kerckhoffs Institute\\Supervisor: Bart Jacobs}
+
+\begin{document}
+
+\maketitle
+\vspace{2.5cm}
+\begin{abstract}
+\noindent
+%When performing automated penetration tests, often large reports containing many vulnerabilities have to be read and the detections need to be manually verified. In practice however, developers quickly grow tired of this task if it entails repeatedly checking the same false positive vulnerability, but with a different injection payload. The risk of insecure web applications continuing to be insecure then increases. The cause of the issue is an automated penetration testing tool that does not effectively filter false positives, usually because it does not detect them properly. In this research I aim to improve the false positive detection capabilities of QualysGuard, a commercial penetration testing tool, resulting in less false positives on the one hand, or more true positives on the other hand.
+When purchasing a restricted product or a service people are generally required to show a form of identification. Ideally you would like to share only the information that is required in order to be allowed purchase of the product or service. Showing an identification document generally reveals more information than is necessary. The IRMA card is a solution to this problem, as it allows revealing the bare minimum of information and keeping the rest a secret. Before this IRMA card can be used to share this information however, it needs to contain attributes that describe what you are. Copying the information that is already present on the chip embedded in identity documents is a good starting point for obtaining these attributes. This research aims to perform this process securely by applying strong cryptography.
+\end{abstract}
+
+\clearpage
+\section{Introduction}
+%In automated penetration testing the issue of false positives is a fairly common occurrence. During such a 'pen test' any possible vulnerability has to be confirmed manually by a developer. If it is not in fact a security risk, it is labeled a false positive. Developers are often inclined to dismiss detected vulnerabilities as false positives if the report they receive contains a large number of detections and also the first few of them are actual false positives. This leaves a risk that the web application that was scanned and found vulnerable is not sufficiently repaired to ensure its security, i.e. security risks are left untreated.
+
+%On the other hand, false negatives are even more of a security risk. A false negative is a vulnerability that is present in a web application, but is not detected during a pen test. As you can see, if the pen test indicates a 'secure' web application, but it still contains false negatives, then the pen test provides a false sense of security.
+
+%There are many companies that built their own automated penetration testers. Examples include Cenzic's Hailstorm, Qualys' QualysGuard, IBM's AppScan and McAfee's Vulnerability Assessment SaaS. There are also multiple open source alternatives, such as Burp Suite, OWASP WebScarab and Web Application Attack and Audit Framework (w3af). 
+
+%The goal of this paper is to analyze and possibly improve upon algorithms of existing pen testing tools in the detection and prevention of false positives. I want to at least be able to provide a comparison between QualysGuard (for which I have a commercial license) and several of the open source alternatives. 
+
+IRMA, short for I Reveal My Attributes, is a project in which properties about you are stored on a smart card and can be verified by authorized parties. These properties are essentially pieces of information about what you are, such as your age, your social security number, your relatives; anything you can think of that applies to you. These properties, from here on called attributes, are stored on the smart card in such a way that you only have to reveal the attributes that are required to be known by the other party before receiving a service or purchasing a product. A classical example of this is the age verification before you are allowed to buy alcoholic beverages. Should you use a passport for age verification, the liquor store owner learns all attributes that apply to you and are printed on the passport. Should you instead present your IRMA card to a reader, only the attribute that states whether you are of legal drinking age is revealed to the store owner, who then allows you to buy liquor without ever learning your actual age. The IRMA project can be a solution to many such problems. For more information about the IRMA project, please see \url{https://www.irmacard.org/}.
+
+\section{Problem}
+%As briefly hinted at in the previous section, the detection of false positives in automated penetration testing is hard. There is no clear description of what you should do to avoid false positives while scanning for vulnerabilities. That being said, we can distinguish the amount of false positives in different categories of vulnerabilities. For example, the detection of a false positive is much harder while testing for (Blind) SQL Injections than it is while testing for the correct flags on a session cookie. I have identified four categories of vulnerabilities that have resulted in a relatively high amount of false positives: Blind SQL Injection, PHP command injection, Local/Remote File Inclusion and Cross-Site Scripting. These are also in the top 10 of most-common vulnerabilities according to the OWASP organization. The research will focus primarily on these four types of vulnerabilities.
+
+%The quality of the detection of false positives also has a relationship with the automated penetration testing tool. For my day job I work with Qualys' pen tester called QualysGuard. Because of my relation to this company I will be able to obtain technical details of their penetration testing methods. I will compare this tool to the open source alternatives that are available and thoroughly analyze them to determine if the algorithms they use can be improved upon. During this, I will focus on improvement of Qualys' algorithms.
+
+%The research question will therefore be: ``How does one determine whether a detected vulnerability is a false positive or a true positive?'' Before I can answer this question I first have to find the answers to the following part questions: ``Which types of vulnerabilities are hard to detect?'' ``How does QualysGuard and the other tools determine a false positive?'' ``What can be done to improve the algorithms QualysGuard uses?''
+
+%The goals of this research are to either lower the amount of false positives detected, or to raise the amount of true positives detected.
+One of the problems of passports and other identity documents is the fact that using them for identification generally means the identifier will have access to all information on the document, rather than only to the minimal required information. It is therefore benificial in terms of privacy to store these attributes on the IRMA card instead. 
+
+Document holders would not be able to store the attributes on the IRMA card themselves. For that they would need to go to a designated location, such as a town hall, where a notary would read out the chip in the identity document and store the information on the chip as attributes onto the IRMA card.
+
+The goal of this research will be to create an application that can be used on NFC enabled tablets by these notaries to read out the chip embedded in people's identity document(s), verify the attributes learned from it and finally store the attributes securely onto the IRMA card.
+
+The major challenge will be to design a communication protocol for verifying the attributes read from the identity documents. It is undesirable to have each notary's tablet contain a copy of the private key used for signing the verified attributes. The ideal scenario would be to have a centralized private key, held by the government, that is used for signing verified attributes and the notaries send verification requests. The research question therefore will be: ``What is the most secure method to copy the information on the chip in identity documents as attributes onto the IRMA card?''
+
+\section{Motivation}
+%Research on this topic is relevant because, as briefly mentioned in the introduction, there is a risk that vulnerable web sites will not be repaired if the vulnerabilities are concealed behind lots of false positives. Developers will usually manually confirm the first 10 vulnerabilities in a security report to see if the penetration tester is any good. If most of these 10 reported vulnerabilities turn out to be false positives, the rest of the report has a high chance of being dismissed as all false positives. The other side of the medal is a penetration tester not reporting any vulnerability at all, because it is deemed to be a false positive while it is not. These true positives provide the developer with a false sense of security, thus still not achieving the desired effect of performing an automated penetration test.
+
+%The improvement of detection for false positives is best done for vulnerabilities that tend to be hard to detect, such as Blind SQL Injection, PHP command injection, Local/Remote File Inclusion and Cross-Site Scripting, all vulnerabilities listed in OWASP's Top 10 of 2013. There is much security to gain from focusing on these types of vulnerabilities.
+
+Research on this topic is relevant because people are becoming more and more aware that their privacy is (almost) never guaranteed. Often one is required to submit a print copy of an identity document with an application for a service, which in turn sometimes leads to identity fraud. The IRMA project is focused on privacy and therefore solves some of these problems. Before the IRMA card can be used to reveal attributes however, it first needs to contain some attributes. The information on the chip in identity documents is a good starting point for initializing ones IRMA card with attributes.
+
+\section{Theoretical Scope}
+%A lot of work has already been done in the field of comparing various automated penetration testing tools to one another. Fonseca et al. for example have compared various tools for effectiveness on the detection of SQL injections~\cite{fonseca2007testing}. SQL injections are one of the most dangerous types of vulnerabilities and yet still fairly common in practice. In their paper they also analyze the difference between code analyzers and automated penetration testing tools and suggest code analyzers are less prone to false positives than automated penetration testing tools.
+
+%Kosuga et al. have developed an automated penetration testing tool named Sania and claim to have developed a more efficient method of testing for SQL injection vulnerabilities.~\cite{kosuga2007sania}
+
+%In their paper Using Positive Tainting and Syntax-Aware Evaluation to Counter SQL Injection Attacks, Halfond et al. have created a ``highly automated approach for protecting existing Web applications against SQL injection.''~\cite{halfond2006using}
+
+%Bau et al. have created a comparison of 8 ``leading tools and carried out a study of [\ldots] their effectiveness against target vulnerabilities.''~\cite{bau2010state}
+
+%These (and other) articles will provide me with a good starting point for analyzing the tools and finding methods of improvement.
+The first objective of this research is to read the data on the chip in the identity document. For this the JMRTD application has been developed as a research project of the Digital Security group at Radboud University in Nijmegen~\cite{sosgroup2007radboud}. There is also already functionality available to store credentials onto IRMA cards. 
+
+Gergely Alp\'ar and Jaap-Henk Hoepman present a security model that includes mutual authentication using attributes~\cite{gergely2013secure}.
+
+Gergely Alp\'ar and supervisor Jacobs provide the most important credential design principles~\cite{gergely2013credential}.
+
+Pim Vullers and Gergely Alp\'ar present a method for efficient selective disclosure of attributes~\cite{vullers2013efficient}.
+
+\section{Strategy}
+%My strategy is to first get my hands on the algorithm used in QualysGuard, because this is the most important part of the research. If in any case I am unable to get this information, I will have to forget about Qualys and focus solely on the open source alternatives such as WebScarab, Burp Suite and w3af. The strategy described in this section assumes the best case scenario.
+
+%Once I have access to the technical specifications of QualysGuard's algorithms I will have to analyze them, as well as the open source alternatives' algorithms. This will result in a comparison of the various methods used in practice, all the while focusing on the four most false positive prone vulnerabilities mentioned in the previous section.
+
+%After that I will focus on finding parts of the algorithm that can be improved and actually make those improvements myself. 
+My strategy is to first design a sound and secure protocol for the communication between a notary and the government's verification server. After that is complete, I am going to use the JMRTD project for retrieval of data from the chip on the identity document and use the new protocol to verify the data and sign it. Once I have the signed and verified data, I am going to store it as attributes onto the IRMA card.
+
+\section{Time Schedule}
+\begin{center}
+\begin{longtable}{lll}
+\caption{Time Schedule}\\
+\toprule
+\textbf{Week} & \textbf{Activity} & \textbf{Deliverables} \\
+              &                   &  (submit-by date)     \\
+\toprule
+\endfirsthead
+\multicolumn{3}{c}%
+{\tablename\ \thetable\ -- \footnotesize\textsl{Continued from previous page}} \\
+\toprule
+\textbf{Week} & \textbf{Activity} & \textbf{Deliverables} \\
+\toprule
+\endhead
+\multicolumn{3}{r}{\footnotesize\textsl{Continued on next page}} \\
+\endfoot
+\endlastfoot
+\label{tab:schedule}
+9   & Meeting with supervisor                         &                         \\ \midrule
+10  & Write research proposal                         &                         \\ 
+    & Meeting with Ronny                              &                         \\ 
+    & Meeting with IRMA project members               &                         \\ \midrule
+11  & Write research proposal                         & Research proposal       \\ \midrule
+12  & Meeting with supervisor                         &                         \\ 
+    & Set up required programming environment         &                         \\ \midrule
+13  & Start designing a communication protocol        &                         \\ \midrule
+14  & Meeting with supervisor                         & Communication protocol  \\ \midrule
+15  & Start implementing protocol                     &                         \\ \midrule    
+17  & Meeting with supervisor                         &                         \\ \midrule    
+21  & Finish implementing protocol                    & Code                    \\ \midrule
+22  & Meeting with supervisor                         &                         \\ \midrule
+23  & Start writing paper                             &                         \\ \midrule
+25  & Meeting with supervisor                         & Draft paper             \\ \midrule
+26  & Finish writing paper                            & Paper                   \\ \midrule
+27  & Meeting with supervisor                         &                         \\ \midrule
+29  & Start writing presentation                      &                         \\ \midrule
+30  & Finish presentation                             & Presentation            \\ \midrule
+31  & Meeting with supervisor                         &                         \\ \bottomrule
+\end{longtable}
+\end{center}
+
+\nocite{*}
+\bibliographystyle{plain}
+\bibliography{references}
+
+\end{document}

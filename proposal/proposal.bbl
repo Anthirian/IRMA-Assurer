@@ -1,0 +1,26 @@
+\begin{thebibliography}{1}
+
+\bibitem{gergely2013secure}
+Gergely Alp\'ar and Jaap-Henk Hoepman.
+\newblock A secure channel for attribute-based credentials.
+\newblock In {\em Proceedings of the 2013 ACM Workshop on Digital Identity
+  Management (DIM 2013), Berlin, Germany}, pages 13--18, November 2013.
+
+\bibitem{gergely2013credential}
+Gergely Alp\'ar and Bart Jacobs.
+\newblock Credential design in attribute-based identity management.
+\newblock In Ronald Leenes and Eleni Kosta, editors, {\em Bridging distances in
+  technology and regulation, 3rd TILTing Perspectives Conference, Tilburg, NL},
+  pages 189--204, April 2013.
+
+\bibitem{sosgroup2007radboud}
+ICIS SoSGroup.
+\newblock {Radboud University Nijmegen. JMRTD project}, 2007.
+
+\bibitem{vullers2013efficient}
+Pim Vullers and Gergely Alp\'ar.
+\newblock {Efficient Selective Disclosure on Smart Cards using Idemix}.
+\newblock In Chris~Mitchell et~al., editor, {\em IFIP IDMAN. Springer Science
+  and Business Media}, 2013.
+
+\end{thebibliography}
