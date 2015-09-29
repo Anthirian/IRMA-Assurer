@@ -9,7 +9,7 @@
 free net.
 
 (* Message tags *)
-free ClientHello, ServerHello, ServerCertificate, ServerKeyExchange, ClientCertificateRequest, ServerHelloDone, ClientCertificate, ClientKeyExchange, CertificateVerify, ClientChangeCipherSpec, ClientFinished, ServerChangeCipherSpec, ServerFinished.
+free ClientHello, ServerHello, ServerCertificate, ServerKeyExchange, ClientCertificateRequest, ServerHelloDone, ClientCertificate, ClientKeyExchange, CertificateVerify, ClientChangeCipherSpec, ClientFinished, ServerChangeCipherSpec, ServerFinished, ClientPassport.
 
 (* Agent initialization is done over a private channel *)
 private free clientInit, serverInit, initChannel.
@@ -56,6 +56,8 @@ equation exp(exp(g, x), y) = exp(exp(g, y), x). (* Equality property *)
  query attacker: clientS.
  query attacker: serverS.
  
+ query attacker: passportFlag. 
+ 
 (* secrecy Pre Master secret *)
 query attacker: PMSa.
 query attacker: PMSb.
@@ -94,10 +96,11 @@ let Server =
 	(** Initial agent data from a trusted channel **)
 	in(serverInit, (B, serverKeypair, serverCert));
 	
+	(** Receive issuer keypair over another trusted channel, double checking to make sure it is in fact intended for me **)
 	in(initChannel, (=B, issuerKeypair, issuerCert));
 	
 	let SKs = sk(serverKeypair) in (* Secret key used for communication *)
-	let SKi = sk(issuerKeypair) in (* Secret key used for signing of attributes *)
+	let SKi = sk(issuerKeypair) in (* Secret key used for signing of attributes
 	
 	(** Replication to model arbitrary sessions **)
 	!
@@ -183,6 +186,11 @@ let Server =
 	new s;
 	out(net, encrypt(s, serverK(Na, Nb, M)));
 	
+	(* Start of application data *)
+	
+	(* Receiving the passport *) (* C -> S: {data, C, S, nonce}K_cs, HMAC *)
+	in(s, CP); let (=ClientPassport, EncryptedPassport, HMACPassport) = CP in
+		
 	(
 		(new serverS; out(s, serverS)) |
 		
@@ -262,7 +270,7 @@ let Client =
 	(* Sending ClientChangeCipherSpec, indicating a switch to the encryption negotiated above. Essentially just 1 byte *)
 	let CCCS = ClientChangeCipherSpec in out(net, CCCS);
 	
-	(* Compute hash and session key *)
+	(* Compute Finished using hash *)
 	let Finished = hash((CH, SH, SC, SKE, CCR, SHD, CC, CKE, CV, CCCS, M)) in
 	
 	(* A −> B : Finished *)
@@ -283,10 +291,34 @@ let Client =
 	(* End of TLS handshake *)
 	
 	(* Receive the secure channel created by the server *)
-	in(net, newChannel); let s = decrypt(newChannel, serverK(Na, Nb, M)) in (* TODO: secure channel is not secret? *)
+	in(net, newChannel); let s = decrypt(newChannel, serverK(Na, Nb, M)) in
 	
+	(** Start of application data **)
+	
+	(* Build passport (data is actually received through a separate process) *)
+	new DataGroups; (* 16 data groups in total *)
+	let SecurityObject = hash(DataGroups) in (* Contains hashes of all DG values *)
+	new P; (* Create new passport agent (only part of the model, not part of passport) *)
+	let passportKeypair = keypair(P) in (* Public key is technically stored in DG15 *)
+	
+	let Passport = (DataGroups, SecurityObject, pk(passportKeypair)) in
+	
+	(* Generating fresh nonce for passport communication *)
+	new Np;
+	
+	(* Encrypting passport using the session key *)
+	let EP = encrypt((Passport, A, B, Np), clientK(Na, Nb, M)) in
+	
+	(* Generating HMAC of the encrypted passport, again reusing the session key *)
+	let HP = hmac(EP, clientK(Na, Nb, M)) in
+	
+	(* Send the entire passport data *)
+	let CP = (ClientPassport, EP, HP) in out(s, CP);
+		
 	(
 		(new clientS; out(s, clientS)) |
+		
+		(new passportFlag; out(CP, passportFlag)) |
 		
 		(** secrecy check on the Master secret **)
 		(new MSa; out(M, MSa)) |
