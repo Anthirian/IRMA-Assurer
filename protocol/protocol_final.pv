@@ -79,7 +79,7 @@ query evinj: endServerAuth(x, y, z) ==> evinj: beginServerAuth(x, y, z).
 query evinj: endClientAuth(x, y, z) ==> evinj: beginClientAuth(x, y, z).
 
 (* Passport checks *)
-(* query evinj: endPassiveAuth(x, y, z) ==> evinj: beginPassiveAuth(x, y, z). *)
+query evinj: endPassiveAuth(x, y, z) ==> evinj: beginPassiveAuth(x, y, z).
 (* query evinj: endActiveAuth(x, y, z) ==> evinj: beginActiveAuth(x, y, z). *)
 
 (* ABC transaction check *)
@@ -100,7 +100,7 @@ let Server =
 	in(initChannel, (=B, issuerKeypair, issuerCert));
 	
 	let SKs = sk(serverKeypair) in (* Secret key used for communication *)
-	let SKi = sk(issuerKeypair) in (* Secret key used for signing of attributes
+	let SKi = sk(issuerKeypair) in (* Secret key used for signing of attributes *)
 	
 	(** Replication to model arbitrary sessions **)
 	!
@@ -188,9 +188,29 @@ let Server =
 	
 	(* Start of application data *)
 	
-	(* Receiving the passport *) (* C -> S: {data, C, S, nonce}K_cs, HMAC *)
-	in(s, CP); let (=ClientPassport, EncryptedPassport, HMACPassport) = CP in
-		
+	(* Receiving the encrypted passport and HMAC *)
+	in(s, CP); let (=ClientPassport, EP, HP) = CP in
+
+	(* Decrypt the passport data *)
+	let DP = decrypt(EP, clientK(Na, Nb, M)) in
+
+	(* Verify the HMAC *)
+	let =HP = hmac(EP, clientK(Na, Nb, M)) in
+
+	(* Verify the participants and store the nonce for after passport checks *)
+	let (Passport, =A, =B, Nonce) = DP in
+
+	(* Split up passport and store public key *)
+	(* Note: If BAC is required, everything is inaccessible until BAC is performed *)
+	(* We assume BAC is performed once we get to this part *)
+	let (DG, SOD, PKp) = Passport in
+
+	(* Do Passive Authentication by verifying the hash of the datagroups against the SOD file *)
+	let =SOD = hash(DG) in
+
+	event endPassiveAuth(A, B, Passport);
+
+	(* Secrecy checks *)
 	(
 		(new serverS; out(s, serverS)) |
 		
@@ -302,6 +322,8 @@ let Client =
 	let passportKeypair = keypair(P) in (* Public key is technically stored in DG15 *)
 	
 	let Passport = (DataGroups, SecurityObject, pk(passportKeypair)) in
+
+	event beginPassiveAuth(A, B, Passport); (* TODO: Add P to event? *)
 	
 	(* Generating fresh nonce for passport communication *)
 	new Np;
@@ -314,7 +336,8 @@ let Client =
 	
 	(* Send the entire passport data *)
 	let CP = (ClientPassport, EP, HP) in out(s, CP);
-		
+
+	(* Secrecy checks *)
 	(
 		(new clientS; out(s, clientS)) |
 		
@@ -341,7 +364,7 @@ let initializer =
 	new S; (* Generate agent name (unique) *)
 	let clientKeypair = keypair(C) in (* Generate client keypair *) 
 	let serverKeypair = keypair(S) in (* Generate server keypair *)
-	let issuerKeypair = keypair(S) in (* Generate issuer keypair *) (* TODO: Check if we should use S here too *)
+	let issuerKeypair = keypair(S) in (* Generate issuer keypair *)
 	let clientCert = cert(C, pk(clientKeypair)) in
 	let serverCert = cert(S, pk(serverKeypair)) in
 	let issuerCert = cert(S, pk(issuerKeypair)) in
