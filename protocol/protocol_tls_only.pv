@@ -191,12 +191,9 @@
 	 **************************************************************************)
 	let client =
 		(** Initial agent data from a trusted channel **)
-		in(clientInit, (A, clientKeypair, clientCert));
+		in(clientInit, (A, B, clientKeypair, clientCert));
 		
 		let SKc = sk(clientKeypair) in
-					
-		(** Get the server’s name, perhaps as user input **)
-		in(net, B);
 		
 		(* A generates fresh nonce Na *)
 		new Na;
@@ -292,19 +289,24 @@
 	 * THE INITIALIZER PROCESS                                                *
 	 **************************************************************************)
 	let initializer =
-		new C; (* Generate agent name (unique) *)
-		new S; (* Generate agent name (unique) *)
-		let clientKeypair = keypair(C) in (* Generate client key *)
-		let serverKeypair = keypair(S) in (* Generate server key *)
+		(* Generate agent names (unique) *)
+		new C; 
+		new S;
 		
+		(* Generate keypairs *)
+		let clientKeypair = keypair(C) in
+		let serverKeypair = keypair(S) in
+		
+		(* Generate certificates *)
 		let clientCert = cert(C, pk(clientKeypair)) in
 		let serverCert = cert(S, pk(serverKeypair)) in
-
 		(
-			out(clientInit, (C, clientKeypair, clientCert)) |
+			(* Initialize agents *)
+			out(clientInit, (C, S, clientKeypair, clientCert)) |
 			out(serverInit, (S, serverKeypair, serverCert)) |
 			
-			out(net, S) (* Inform clients of the central server (e.g. IP address) *)
+			(* Publish all non-secret information, otherwise we might miss attacks *)
+			out(net, (C, S, clientCert, serverCert))
 		).
 		
 	(**************************************************************************
