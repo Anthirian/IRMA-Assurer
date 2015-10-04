@@ -49,7 +49,10 @@
 	(**************************************************************************
 	 * QUERIES 																  *
 	 **************************************************************************)
-	 
+	(** secrecy check on the secure channel **)
+	query attacker: Sa.
+	query attacker: Sb.
+	
 	(* secrecy Pre Master secret *)
 	query attacker: PMSa.
 	query attacker: PMSb.
@@ -80,8 +83,6 @@
 	let server =
 		(** Initial agent data from a trusted channel **)
 		in(serverInit, (B, serverKeypair, serverCert));
-		
-
 
 		let SKs = sk(serverKeypair) in
 		
@@ -163,8 +164,15 @@
 		(* B verifies received Finished *)
 		let =Finished = decrypt(FA, clientK(Na, Nb, M)) in
 		
+		(* Set up a new secure channel encrypted with the newly generated session key *)
+		new s;
+		out(net, encrypt(s, serverK(Na, Nb, M)));
+		
 		(* Secrecy checks *)
 		(
+			(** secrecy check on the secure channel **)
+			(new Sa; out(s, Sa)) |
+			
 			(** secrecy check on the Master secret **)
 			(new MSb; out(M, MSb)) |
 		
@@ -259,8 +267,14 @@
 		(** end server authentication **)
 		event endServerAuth(A, B, Finished);
 		
+		(* Receive the secure channel created by the server *)
+		in(net, newChannel); let s = decrypt(newChannel, serverK(Na, Nb, M)) in
+		
 		(* Secrecy checks *)
 		(
+			(** secrecy check on the secure channel **)
+			(new Sb; out(s, Sb)) |
+			
 			(** secrecy check on the Master secret **)
 			(new MSa; out(M, MSa)) |
 		
