@@ -37,11 +37,11 @@ private fun keypair/1.
  * QUERIES 																  *
  **************************************************************************)
 
- (* Secrecy passport and attribute data *)
+(* Secrecy of passport and attribute data *)
 query attacker: passportFlag.
-query attacker: ABCflag.
+query attacker: abcFlag.
 
-(* Passport checks *)
+(* Passport authenticity *)
 query evinj: endPassiveAuth(x, y, z) ==> evinj: beginPassiveAuth(x, y, z).
 query evinj: endActiveAuth(x, y, z) ==> evinj: beginActiveAuth(x, y, z).
 
@@ -57,11 +57,11 @@ query attacker: serverFinished.
  **************************************************************************)
 let Server =
 	in(serverInit, (A, B, sessionKey));
-	
+
 	in(initChannel, (=B, issuerKeypair));
 	let SKi = sk(issuerKeypair) in (* Secret key used for signing of attributes *)
 	(* Start of application data *)
-	
+
 	(* Receiving the encrypted passport (EP) and its HMAC (HP) *)
 	in(s, CP); let (=ClientPassport, EP, HP) = CP in
 
@@ -73,7 +73,7 @@ let Server =
 
 	(* Verify the participants and store the nonce for after passport checks *)
 	let (Passport, =A, =B, Nonce) = DP in
-	
+
 	(* Split up passport and store public key *)
 	(* Note: If BAC is required, everything is inaccessible until BAC is performed *)
 	(* We assume BAC is performed once we get to this part *)
@@ -84,21 +84,28 @@ let Server =
 
 	event endPassiveAuth(A, B, Passport);
 
-	(* Start Active Authentication by sending a challenge *)
+	(** Start of Active Authentication **)
+
+	(* Create a challenge *)
 	new AAC;
 
 	event beginActiveAuth(A, B, AAC);
 
+	(* Send the challenge *)
 	out(s, (ActiveAuthenticationChallenge, AAC));
 
-	(* Receive the response and verify if it is the correct solution *)
+	(* Receive the response *)
 	in(s, AAR); let (=ActiveAuthenticationReponse, AAResp) = AAR in
 
+	(* Verify the response *)
 	let =AAC = unsign(AAResp, PKp) in
-	
+
 	event endActiveAuth(A, B, AAC);
 
-	(* Start of ABC logic *)
+	(** End of Active Authentication **)
+
+
+	(** Start of ABC logic **)
 
 	(* Create a new characteristic, such as "student" or "male" *)
 	new Char;
@@ -120,18 +127,18 @@ let Server =
 	(* Send the encrypted data and its HMAC *)
 	let ABCdata = (EA, HA) in out(s, (* (TransferABC,*) ABCdata);
 
-	(* End of ABC logic *)
+	(** End of ABC logic **)
 
-	(* End of application data *)
+	(** End of application data **)
 
-	(* Secrecy checks *)
+	(** Secrecy checks **)
 	(
-		(new ABCflag; out(ABCdata, ABCflag)) |
-		
+		(* secrecy of ABC data *)
+		(new abcFlag; out(ABCdata, abcFlag)) |
+
 		(** dead code check **)
 		(new serverFinished; out(net, serverFinished))
-	).	
-	
+	).
 
 (**************************************************************************
  * CLIENT PROCESS, this client is the initiator of the protocol.          *
@@ -139,51 +146,50 @@ let Server =
 let Client =
 	(* TODO: Is this OK for obtaining the session key? Share DH parameters or just receive entire key? *)
 	in(clientInit, (A, B, sessionKey));
-	
+
 	(** Start of application data **)
-	
+
+
+	(** Start of Passive Authentication **)
+
 	(* Build passport (data is actually received through a separate process) *)
-	new DG; (* 16 data groups in total *)
+	new DG; (* 16 data groups (DG) in total *)
 	let SOD = hash(DG) in (* Contains hashes of all DG values *)
 	new P; (* Create new passport agent (only part of the model, not part of passport) *)
 	let passportKeypair = keypair(P) in (* Public key is technically stored in DG15 *)
-
 	let Passport = (DG, SOD, pk(passportKeypair)) in
 
-	event beginPassiveAuth(A, B, Passport); (* TODO: Add P to event? *)
-	
+	event beginPassiveAuth(A, B, Passport);
+
 	(* Generating fresh nonce for passport communication *)
 	new Np;
-	
+
 	(* Encrypting passport using the session key *)
 	let EP = encrypt((Passport, A, B, Np), sessionKey) in
-	
+
 	(* Generating HMAC of the encrypted passport, again reusing the session key *)
 	let HP = hmac(EP, sessionKey) in
-	
+
 	(* Send the entire passport data *)
 	let CP = (ClientPassport, EP, HP) in out(s, CP);
-	
-	(* Start of Active Authentication *)
+
+	(** Start of Active Authentication **)
 
 	(* Receive challenge from Server *)
 	in(s, AAC); let (=ActiveAuthenticationChallenge, Ch) = AAC in
-	
+
 	(* Send response to AA challenge *)
 	let AAR = (ActiveAuthenticationReponse, sign(Ch, sk(passportKeypair))) in out(s, AAR);
 
-	(* End of Active Authentication *)
+	(** End of Active Authentication **)
 
-	(* Start of ABC logic *)
 
-	(* S -> C: {[{attr_1}SK_s, {attr_2}SK_s, ...], C, S, nonce}K_ts, HMAC *)
-	(* in(s, applicationdata); let (=TransferABC, ABCs) = applicationdata in *)
-	
+	(** Start of ABC logic **)
+
+	(* Receiving encrypted attribute data (EA) and its HMAC (HA) *)
 	in(s, ABCs); let (EA, HA) = ABCs in
-	
-	
 
-	(* Check the HMAC *)
+	(* Verify the HMAC *)
 	let =HA = hmac(EA, sessionKey) in
 
 	(* Decrypt the Attribute Data (AD) *)
@@ -191,38 +197,45 @@ let Client =
 
 	(* Verify the participants and the nonce and store the ABC(s) *)
 	let (ABCdata, =A, =B, =Np) = AD in
-	
 
 	event endTransaction(A, B, ABCdata);
 
-	(* End of ABC logic *)
+	(** End of ABC logic **)
 
-	(* End of application data *)
+	(** End of application data **)
 
-	(* Secrecy checks *)
+	(** Secrecy checks **)
 	(
-		(new clientFinished; out(net, clientFinished)) |
-		(new passportFlag; out(CP, passportFlag))
-		
-		(** dead code check **)
-		
+		(* secrecy of the passport *)
+		(new passportFlag; out(CP, passportFlag)) |
+
+		(* dead code check *)
+		(new clientFinished; out(net, clientFinished))
 	).	
 
 (**************************************************************************
  * THE INITIALIZER PROCESS                                                *
  **************************************************************************)
 let initializer =
-	new C; (* Generate agent name (unique) *)
-	new S; (* Generate agent name (unique) *)
+	(* Generate agent names (unique) *)
+	new C;
+	new S;
+
+	(* Use the session key agreed upon during TLS handshake *)
 	new sessionKey;
-	let issuerKeypair = keypair(S) in (* Generate issuer keypair *)
+
+	(* Generate issuer keypair *)
+	let issuerKeypair = keypair(S) in
 	(
+		(* Initialize agents *)
 		out(clientInit, (C, S, sessionKey)) |
 		out(serverInit, (C, S, sessionKey)) |
 		out(initChannel, (S, issuerKeypair)) |
-		out(net, S) (* Inform clients of the central server (e.g. IP address) *)
+
+		(* Publish all non-secret information, otherwise we might miss attacks *)
+		out(net, (C, S, pk(issuerKeypair)))
 	).
-	
+
 (**************************************************************************
  * THE SYSTEM                                                             *
  **************************************************************************)
