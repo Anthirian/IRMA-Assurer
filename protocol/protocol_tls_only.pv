@@ -79,11 +79,11 @@
 	 **************************************************************************)
 	let server =
 		(** Initial agent data from a trusted channel **)
-		in(serverInit, (B, keypair, serverCert));
+		in(serverInit, (B, serverKeypair, serverCert));
 		
 
 
-		let SKs = sk(keypair) in
+		let SKs = sk(serverKeypair) in
 		
 		(** Replication to model arbitrary sessions **)
 		!
@@ -183,9 +183,9 @@
 	 **************************************************************************)
 	let client =
 		(** Initial agent data from a trusted channel **)
-		in(clientInit, (A, keypair, clientCert));
+		in(clientInit, (A, clientKeypair, clientCert));
 		
-		let SKc = sk(keypair) in
+		let SKc = sk(clientKeypair) in
 					
 		(** Get the server’s name, perhaps as user input **)
 		in(net, B);
@@ -206,7 +206,7 @@
 		in(net, SC); let (=ServerCertificate, serverCert) = SC in
 		
 		(* Receiving Server DH Key Parameters and checking integrity *)
-		in(net, SKE); let (=ServerKeyExchange, g, N, GY, DHSignature) = SKE in
+		in(net, SKE); let (=ServerKeyExchange, =g, N, GY, DHSignature) = SKE in
 		let unsignKey = verify(serverCert, B) in
 		let (=Na, =Nb, =g, =N, =GY) = unsign(DHSignature, unsignKey) in
 		
