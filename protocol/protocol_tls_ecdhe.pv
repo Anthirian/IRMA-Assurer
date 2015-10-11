@@ -42,9 +42,9 @@ private fun cert/2.
 reduc verify(cert(x, y), x) = y.
 
 (* Diffie-Hellman computations *)
-fun g/0. 										(* Generator of the group (a constant) *)
-fun exp/2.										(* Exponentiation *)
-equation exp(exp(g, x), y) = exp(exp(g, y), x). (* Equality property *)
+fun G/0. 										(* Generator point of the group (a constant) *)
+fun sm/2.										(* Scalar multiplication *)
+equation sm(y, sm(x, G)) = sm(x, sm(y, G)). (* Equality property: x·yG = y·xG *)
 
 (**************************************************************************
  * QUERIES 																  *
@@ -103,11 +103,16 @@ let server =
 	let SC = (ServerCertificate, serverCert) in out(net, SC);
 
 	(* Generate Diffie-Hellman Key Exchange parameters *)
-	new N; (* Modulus (prime), public *)
-	new Y; (* Server's secret exponent *)
+	new p; (* Prime modulus *)
+	new n; (* Order of generator point G *)
+	new h; (* Cofactor *)
+	new a; (* Elliptic curve parameter 1 *)
+	new b; (* Elliptic curve parameter 2 *)
+	new beta; (* Server's secret multiplier *)
 
 	(* B -> A: ServerKeyExchange *)
-	let SKE = (ServerKeyExchange, g, N, exp(g, Y), sign((Na, Nb, g, N, exp(g, Y)), SKs)) in out(net, SKE);
+	(* p; a; b; G; n; h *)
+	let SKE = (ServerKeyExchange, p, a, b, G, n, h, sm(beta, G), sign((Na, Nb, p, a, b, G, n, h, sm(beta, G)), SKs)) in out(net, SKE);
 
 	(* Create a list of acceptable certificate types and CAs *)
 	new Acceptable_certificate_types;
@@ -123,7 +128,7 @@ let server =
 	in(net, CC); let (=ClientCertificate, clientCert) = CC in
 
 	(* A −> B : ClientKeyExchange *)
-	in(net, CKE); let(=ClientKeyExchange, GX) = CKE in
+	in(net, CKE); let(=ClientKeyExchange, AG) = CKE in
 
 	(* A −> B : CertificateVerify *)
 	let unsignKey = verify(clientCert, A) in
@@ -136,7 +141,7 @@ let server =
 	event endClientAuth(A, B, cvHash);
 
 	(* Calculating the Pre-Master Secret *)
-	let PMS = exp(GX, Y) in
+	let PMS = sm(beta, AG) in
 
 	(* Receiving ClientChangeCipherSpec *)
 	in(net, CCCS); let =ClientChangeCipherSpec = CCCS in
@@ -148,7 +153,7 @@ let server =
 	let M = PRF((PMS, Na, Nb)) in
 
 	(* B calculates Finished *)
-	let Finished = hash((CH, SH, SC, SKE, CCR, SHD, CC, CKE, CV, CCCS, M)) in
+	let Finished = hash((CH, SH, SC, SKE, CCR, SHD, CC, CKE, CV, CCCS, M)) in	
 
 	(** server authentication **)
 	event beginServerAuth(A, B, Finished);
@@ -158,7 +163,7 @@ let server =
 
 	(* B −> A : Finished *)
 	out(net, encrypt(Finished, serverK(Na, Nb, M)));
-	
+
 	(* B verifies received Finished *)
 	let =Finished = decrypt(FA, clientK(Na, Nb, M)) in
 
@@ -209,9 +214,9 @@ let client =
 	in(net, SC); let (=ServerCertificate, serverCert) = SC in
 
 	(* Receiving Server DH Key Parameters and checking integrity *)
-	in(net, SKE); let (=ServerKeyExchange, =g, N, GY, DHSignature) = SKE in
+	in(net, SKE); let (=ServerKeyExchange, p, a, b, =G, n, h, BG, DHSignature) = SKE in
 	let unsignKey = verify(serverCert, B) in
-	let (=Na, =Nb, =g, =N, =GY) = unsign(DHSignature, unsignKey) in
+	let (=Na, =Nb, =p, =a, =b, =G, =n, =h, =BG) = unsign(DHSignature, unsignKey) in
 
 	(* Receiving ClientCertificateRequest *)
 	in(net, CCR); let (=ClientCertificateRequest, Acceptable_certificate_types, Acceptable_certificate_authorities) = CCR in
@@ -223,8 +228,8 @@ let client =
 	let CC = (ClientCertificate, clientCert) in out(net, CC);
 
 	(* A −> B : ClientKeyExchange *)
-	new X;
-	let CKE = (ClientKeyExchange, exp(g, X)) in out(net, CKE);
+	new alpha;
+	let CKE = (ClientKeyExchange, sm(alpha, G)) in out(net, CKE);
 
 	(* Creating hash of past messages *)
 	let cvHash = hash((CH, SH, SC, SKE, CCR, SHD, CC, CKE)) in
@@ -235,8 +240,8 @@ let client =
 	(* A −> B: CertificateVerify *)
 	let CV = sign((CertificateVerify, cvHash), SKc) in out(net, CV);
 
-	(* Compute the pre-master secret (g^xy) *)
-	let PMS = exp(GY, X) in
+	(* Compute the pre-master secret (X·YG) *)
+	let PMS = sm(alpha, BG) in
 
 	(* Compute the master secret, technically also requires "master secret" to be part of the arguments for hashing *)
 	let M = PRF((PMS, Na, Nb)) in
