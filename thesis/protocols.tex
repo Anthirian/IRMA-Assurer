@@ -1,4 +1,5 @@
 \section{Protocols}
+\label{sec:protocols}
 The IRMA Assurer protocol is an application level protocol. It is designed to run on top of TLS 1.2. Only the latest version of the TLS standard is considered cryptographically secure and therefore is the only version IRMA Assurer supports. A second argument for the use of version 1.2 is the possibility to achieve Perfect Forward Secrecy (PFS), meaning that in case the long term key is ever compromised, then the session keys derived from it before compromise are still secure~\cite{PFS}. This chapter will first describe the TLS protocol, explaining the chosen parameters. The IRMA Assurer protocol follows directly after.
 
 \subsection{Transport Layer Security}
@@ -12,8 +13,6 @@ The IRMA Assurer protocol is an application level protocol. It is designed to ru
 The Transport Layer Security (TLS) protocol is a protocol operating on the presentation layer of the OSI Reference Model~\cite{osi}. It is a protocol that secures the connection between two parties across an insecure channel, ensuring secrecy~\cite{tls1.2}. It also has the possibility for authentication based on certificates. TLS is commonly used in web browsers to encrypt HTTP into HTTPS traffic, but it is capable of protecting any TCP connection~\cite{lecture}.
 
 TLS 1.2 was defined in RFC 5246 in August 2008. It is based on the earlier TLS 1.1 specification. It was further refined in RFC 6176 in March 2011 removing their backward compatibility with SSL such that TLS sessions will never negotiate the use of Secure Sockets Layer (SSL) version 2.0.
-
-\texttt{TLS vulnerable to handshake renegotiation attack, solved by RFC 5746~\cite{lecture}.}
 
 The protocol consists of two major parts, TLS Handshake and TLS Record. Handshake is used for setting up connections between two parties, with optional authentication, while Record is used for ordering, encrypting and sending of the data. Handshake makes use of Record, so they work both alongside as well as on top of each other (see figure~\ref{fig:tlsstack}).
 
@@ -50,11 +49,42 @@ Application Data         <------->         Application Data
 \label{fig:tlshandshake}
 \end{figure}
 
+TLS also supports extensions. These are additional supported features, each with its own specification~\cite{tlsext}. These extensions can be used in either party's Hello message to indicate special wishes. This is useful to upgrade the TLS connection to a more secure version by increasing the minimum recommended cryptographic parameters. For example, TLS in its basic form is vulnerable to a handshake renegotiation attack~\cite{lecture}. In essence an attacker may send arbitrary data followed by a renegotiation intercepted from a regular client to trick a server into believing the arbitrary data was sent by this client instead. An extension has been developed to combat this, which is described in RFC 5746~\cite{tls_handshake_vuln}. We assume this extension to be used on every handshake performed during runs of Assurer and do not explicitly mention it in the following sections.
+
 \subsubsection{TLS record}
 The record protocol handles the sending and receiving of TLS related messages. It forms the basis of the TLS protocol. When sending, it will split the data in blocks, optionally compress it, apply a MAC, encrypt the data, add a fragment header and finally send the data over TCP port 443. When receiving, it will decrypt the data, verify the MAC, optionally decompress, defragment and finally deliver the data to the upper layer. Essentially this protocol forms the secure channel between client and server~\cite{tls1.2}.
 
 \subsection{IRMA Assurer}
 The IRMA Assurer protocol makes use of TLS 1.2 as described above. This means both the server and the tablets will verify each other's certificates and agree upon a session key. Once a secure channel has been successfully set up, we have achieved privacy and data integrity of all communication over this channel~\cite{tls1.2}.
+
+After the secure channel is established the application data is transferred between client and server. This entails the sending of the passport data from the client to the server, followed by the sending of ABCs from the server to the client. Before passport data can be sent however, the client needs to read the chip that is present in the passport using special software and hardware. For the purpose of this protocol we assume the client has already performed this action and has knowledge of the passport data.
+
+Shown in figure~\ref{fig:assurer} is the Assurer protocol using the informal Alice-Bob notation. Lines that are not numbered indicate an action outside of the scope of the protocol or an assumption that needs to hold before the next line can be executed. In this notation we denote the client by \texttt{A} and the server by \texttt{B}. Note that the Active Authentication steps do not involve the client as it only forwards communication to and from the passport, denoted by \texttt{P}. Furthermore, \texttt{skP} indicates the private key stored inside the passport and \texttt{kAB} is the key that is agreed upon during the handshake.
+
+\begin{verbbox}
+   [Citizen presents passport]
+   [Client performs PA]
+1. A --> B: ClientHello
+2. B --> A: ServerHello, Certificate, ServerKeyExchange, 
+            CertificateRequest, ServerHelloDone
+3. A --> B: Certificate, ClientKeyExchange, CertificateVerify, 
+            ChangeCipherSpec, {Finished}kAB
+4. B --> A: ChangeCipherSpec, {Finished}kAB
+5. A --> B: {{Passport, A, B, Na}kAB, #{Passport}kAB}kAB
+   [Server performs PA]  
+6. B --> A --> P: {Nb}kAB
+7. P --> A --> B: {{Nb}skP}kAB
+   [Server verifies response to AA challenge]  
+8. B --> A: {{ABCs, A, B, Na}kAB, #{ABCs}kAB}kAB
+   [Client stores ABCs on IRMA card]
+\end{verbbox}
+
+\begin{figure}[htb]
+\centering
+\theverbbox
+\caption{IRMA Assurer including TLS handshake}
+\label{fig:assurer}
+\end{figure}
 
 \subsection{Assumptions}
 \label{sec:assumptions}
@@ -65,7 +95,7 @@ Operational assumptions mostly focus on procedures that have to be followed for 
 
 The entire ecosystem in which Assurer operates can be described as a star structure. At the center of the star will be the (only) server. The edges (points) of the star are formed by the clients. Clients do not communicate with each other, but only with the server. Each of these clients has their own NFC-enabled tablet, which is locked up in a safe and PIN code protected to prevent malicious use. By using an Android app installed on these tablets assurers may access data on passport chips and IRMA cards. Upon client initialization this app is installed on the tablet, as well as the DNS host name of the server. By using the host name the server has the option to switch IP addresses without breaking the system. Also installed on the tablet are a client certificate (signed by the server) required for authentication and its corresponding private key. The server checks the certificate for validity and also checks if it has not been revoked by accessing Certificate Revocation Lists (CRL), which mitigates issues with stolen tablets or misuse. Finally the public key of the server is installed for easy access.
 
-Although subject to change, at the time of writing the communication between IRMA card and terminal, i.e. tablet, is still being sent in the clear. Upon reading data from a passport chip the integrity is verified by the client by executing BAC and PA, and sent to the server for further analysis. The server performs the same checks, plus AA, and looks up the person corresponding to the data in a central database. If everything is proven to be valid the server will create digitally signed attribute-based credentials that correspond to the passport data. The server will then send these ABCs to the client, who will in turn install them on the person's IRMA card. Upon successful installation onto the IRMA card, the ABCs are securely deleted from both server and client. Furthermore, the passport data is securely deleted from the server and client. However the server does keep a log of the BSN that was part of the attribute signing request sent by the client, along with a timestamp. This facilitates traceability in case of anomalies. Finally, we do not support TLS session resuming. This property allows clients to send a stored session identifier to the server and then pick up where left off. Supporting this weakens the strength of the TLS connection, in particular the PFS property of TLS.\footnote{\url{https://timtaubert.de/blog/2014/11/the-sad-state-of-server-side-tls-session-resumption-implementations/}} Since we wish to have PFS we do not allow session resuming.
+Although subject to change, at the time of writing the communication between IRMA card and terminal, i.e. tablet, is still being sent in the clear. Upon reading data from a passport chip the integrity is verified by the client by executing BAC and PA, and sent to the server for further analysis. The server performs the same checks, plus AA, and looks up the person corresponding to the data in a central database. If everything is proven to be valid the server will create digitally signed attribute-based credentials that correspond to the passport data. The server will then send these ABCs to the client, who will in turn install them on the person's IRMA card. Upon successful installation onto the IRMA card, the ABCs are securely deleted from both server and client. Furthermore, the passport data is securely deleted from the server and client. However the server does keep a log of the passport number that was part of the attribute signing request sent by the client, along with a timestamp. This facilitates traceability in case of anomalies. Finally, we do not support TLS session resuming. This property allows clients to send a stored session identifier to the server and then pick up where left off. Supporting this weakens the strength of the TLS connection, in particular the PFS property of TLS.\footnote{\url{https://timtaubert.de/blog/2014/11/the-sad-state-of-server-side-tls-session-resumption-implementations/}} Since we wish to have PFS we do not allow session resuming.
 
 \subsubsection{Cryptographic}
 Before going into the cryptographic choices regarding Assurer it is important to take a quick look at the transport layer used below. There are two options, the User Datagram Protocol (UDP) and the Transport Control Protocol (TCP). We have chosen to make use of TCP for its transport layer protocol. The main reason for this is that we require the packets to be delivered without packet loss. In other words, we favor TCP over UDP for its high reliability. Furthermore it is best compatible with the TLS protocol which we aim to use. Other arguments for choosing TCP include its data flow control and packet reordering capabilities.
@@ -74,7 +104,7 @@ In order to achieve the goals described in section~\ref{sec:goals} several choic
 
 The guideline for choosing supported cipher suites is to offer perfect forward secrecy. Any cipher suites that offer PFS capabilities have been selected, while suites that do not are not selected. In principle, any public key encryption scheme can be used to build a key exchange with PFS by using the encryption scheme with ephemeral public and private keys~\cite{PFS}. This means we have the option to use any public key infrastructure as long as we throw away the keys when we're done using them. Furthermore we can either choose elliptic curve cryptography or conventional cryptography. Because we wish to achieve mutual authentication both parties need to exchange certificates. These certificates must be of type X.509v3 in accordance with the TLS specifications~\cite{tls1.2}. The type of cryptography used for these certificates may either be RSA or DSA. Generally, in terms of performance, neither is significantly better than the other, meaning we may support both. 
 
-As explained above we have chosen TLS 1.2 for its resistance against publicly known feasible attacks, as well as for its Perfect Forward Secrecy capabilities. This requires that the key generation for the encryption scheme must be fast enough. For most applications this disqualifies, for example, the use of ephemeral RSA public key encryption for achieving PFS, since the latter requires the generation of two long prime numbers for each exchange, a relatively costly operation~\cite{PFS}. For this reason we have selected the Diffie-Hellman Key Exchange protocol. Furthermore because of the faster key generation, better performance and shorter key length while still achieving the same level of security we have chosen to use elliptic curves.\footnote{\url{https://www.nsa.gov/business/programs/elliptic_curve.shtml}}
+As explained above we have chosen TLS 1.2 as basis for Assurer for its resistance against publicly known feasible attacks, as well as for its Perfect Forward Secrecy capabilities. This requires that the key generation for the encryption scheme must be fast enough. For most applications this disqualifies, for example, the use of ephemeral RSA public key encryption for achieving PFS, since the latter requires the generation of two long prime numbers for each exchange, a relatively costly operation~\cite{PFS}. For this reason we have selected the Diffie-Hellman Key Exchange protocol. Furthermore because of the faster key generation, better performance and shorter key length while still achieving the same level of security we have chosen to use elliptic curves.\footnote{\url{https://www.nsa.gov/business/programs/elliptic_curve.shtml}}
 
 Since the Assurer protocol is to be used only on newly developed hardware and software it is safe to use the newest cryptography; there should not be any compatibility issues. Mozilla lists the following as the best choice for modern clients in their documentation on server-side TLS,\footnote{\url{https://wiki.mozilla.org/Security/Server_Side_TLS}} ordered from most recommended to least recommended (the $!$ indicates forbidden):
 

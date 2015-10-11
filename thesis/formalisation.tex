@@ -1,36 +1,15 @@
 \section{Formalisation}
-In this section we describe the formalisation of the assumptions and use cases into a model written in the pi calculus. This model can be proven to be cryptographically secure using ProVerif. The model is listed in appendix~\ref{sec:model}. This model is based on the TLS handshake model by Tankink and Vullers~\cite{tankink2008verification}. Their model makes use of RSA for the key exchange, but our model uses Diffie-Hellman. Similarly to their model we make use of message tagging, as is generally considered good practice. Furthermore, ProVerif has trouble finding attacks on variables that are being computed instead of being declared. Tankink and Vullers solve this by creating a new flag variable and outputting this on the supposed-to-be secret. This way when an attacker is able to obtain the flag, then he must have knowledge of the secret and an attack trace can be found. Furthermore we have added dead code checks to the model. This helps determine if the model fails midway. Such a failure is indicated by the fact that no falsification is found by ProVerif.
+\label{sec:formalisation}
+In this section we describe the formalisation of the assumptions and use cases into a model written in the Pi Calculus. This model can be proven to be cryptographically secure using ProVerif. The model is listed in appendix~\ref{app:model}. This model is based on the TLS handshake model by Tankink and Vullers~\cite{tankink2008verification}. Their model makes use of RSA for the key exchange, but our model uses Diffie-Hellman. Similarly to their model we make use of message tagging, as is generally considered good practice. Furthermore, ProVerif has trouble finding attacks on variables that are being computed instead of being declared. Tankink and Vullers solve this by creating a new flag variable and outputting this on the supposed-to-be secret. This way when an attacker is able to obtain the flag, then he must have knowledge of the secret and an attack trace can be found. Furthermore we have added dead code checks to the model. This helps determine if the model fails midway. Such a failure is indicated by the fact that no falsification is found by ProVerif. Finally ProVerif appears to have a set a limit on the amount of RAM that it may use. It will not use more than 2GB of RAM, even though plenty is still available, and will consequently report a fatal error. To work around this, we have chosen to split the model into two parts: the first part describes the TLS handshake, while the second part describes the application protocol.
 
 The model consists of three distinct phases. During the first phase the TLS handshake protocol is executed. As explained before we make use of an ephemeral Diffie-Hellman key agreement. This means that in this protocol the only use for both parties' keypair is the signing and verification of messages sent during the key agreement. Because of the nature of Diffie-Hellman, i.e. the Discrete Logarith Problem (DLP), it is not required to encrypt the protocol parameters as they can be sent in the clear without risk of an eavesdropper learning the agreed upon key. For authentication purposes however, we do require these protocol parameters to be signed by the sending party. This allows the receiving party to verify the identity of the sender before starting an encrypted session.
 
 The second phase starts the actual Assurer application protocol, which takes place over the encrypted channel for which the key was negotiated during the TLS handshake of phase one. During this phase the passport is verified on the client's side by using passive authentication. This is done by checking the hash stored in the Security Object file of all the data groups contained within the passport. Once the client is confident that the integrity of the passport holds it proceeds by sending the passport data, plus a fresh nonce, to the server via the encrypted channel. The server will then also perform passive authentication as a double-check. If the server agrees with the client on the integrity of the passport, active authentication is performed. To do this, it sends a challenge that the passport has to solve. The passport has to sign this challenge in order to prove it has knowledge of the embedded private key. During passive authentication the server has obtained the passport's public key, which is used to verify the response to the challenge.
 
-The third and final phase of the protocol is where the issuing of the Attribute Based Credentials takes place. As mentioned before the server is the only party that posesses the issuer private key. Every verifier, i.e. terminals at a supermarket for example, has knowledge of the issuer's public key and is therefore able to verify the signature placed on the ABCs. The issuer's public key is not used in this model, as attribute verification is not included in its scope. The server creates ABCs and encrypts these ABCs, along with the nonce sent by the client during phase two as well as both parties' names, using the session key and computes an HMAC over the result. The encrypted data and its HMAC are sent to the client, which in turn verifies the HMAC and decrypts the data. If the decrypted data is found to match the nonce and the names of both parties, the client accepts the ABCs and stores them onto the IRMA card and closes the session.
-
-\subsection{Informal notation}
-Here we describe the protocol using the Alice-Bob notation. Lines that are not numbered indicate an action outside of the scope of the protocol or an assumption that needs to hold before the next line can be executed. In this notation we denote the client by A and the server by B. Note that the Active Authentication steps do not involve the client as it only forwards communication to and from the passport, denoted by P. Furthermore, skP indicates the private key stored inside the passport and kAB is the key that is agreed upon during the handshake.
-\begin{verbatim}
-   Citizen presents passport
-   Client performs PA
-  
-1. A --> B: ClientHello
-2. B --> A: ServerHello, Certificate, ServerKeyExchange, 
-            CertificateRequest, ServerHelloDone
-3. A --> B: Certificate, ClientKeyExchange, CertificateVerify, 
-            ChangeCipherSpec, {Finished}kAB
-4. B --> A: ChangeCipherSpec, {Finished}kAB
-5. A --> B: {{Passport, A, B, Na}kAB, #{Passport}kAB}kAB
-
-   Server performs PA
-  
-6. B --> A --> P: {Nb}kAB
-7. P --> A --> B: {{Nb}skP}kAB
-
-   Server verifies response to AA challenge
-  
-8. B --> A: {{ABCs, A, B, Na}kAB, #{ABCs}kAB}kAB
-
-\end{verbatim}
+The third and final phase of the protocol is where the issuing of the Attribute Based Credentials takes place. As mentioned before the server is the only party that posesses the issuer private key. Every verifier, i.e. a terminal, for example at a supermarket has knowledge of the issuer's public key and is therefore able to verify the signature placed on the ABCs. The issuer's public key is not used in this model, as attribute verification is not included in its scope. The server creates ABCs and encrypts these ABCs, along with the nonce sent by the client during phase two as well as both parties' names, using the session key and computes an HMAC over the result. The encrypted data and its HMAC are sent to the client, which in turn verifies the HMAC and decrypts the data. If the decrypted data is found to match the nonce and the names of both parties, the client accepts the ABCs and stores them onto the IRMA card and closes the session.
 
 
 \subsection{Discussion}
+\textsc{TODO: Explain line by line what the model does}
+
+\textsc{TODO: Look back on the goals and explain if they are met}
