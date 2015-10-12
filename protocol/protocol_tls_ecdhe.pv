@@ -44,7 +44,7 @@ reduc verify(cert(x, y), x) = y.
 (* Diffie-Hellman computations *)
 fun G/0. 										(* Generator point of the group (a constant) *)
 fun sm/2.										(* Scalar multiplication *)
-equation sm(y, sm(x, G)) = sm(x, sm(y, G)). (* Equality property: x·yG = y·xG *)
+equation sm(y, sm(x, G)) = sm(x, sm(y, G)). 	(* Equality property: x·yG = y·xG *)
 
 (**************************************************************************
  * QUERIES 																  *

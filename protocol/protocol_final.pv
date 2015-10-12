@@ -20,7 +20,7 @@ fun hmac/2.
 fun encrypt/2. 	(* symmetric key encryption *)
 fun sign/2. 	(* Public key signing *)
 fun sk/1. 	(* Extracts secret key of a keypair *)
-fun pk/1. 	(* Extracts public key of a keypair *)
+fun pk/1. 		(* Extracts public part of a keypair *)
 
 (* The cryptographic destructors *)
 
@@ -53,39 +53,52 @@ equation exp(exp(g, x), y) = exp(exp(g, y), x). (* Equality property *)
  **************************************************************************)
  
 (* secrecy secure channel *)
-(* query attacker: clientS. *)
-(* query attacker: serverS. *)
+private free Sa.
+private free Sb.
+query attacker: Sa.
+query attacker: Sb.
  
-(* query attacker: passportFlag. *)
+private free passportFlag.
+query attacker: passportFlag.
+private free abcFlag.
+query attacker: abcFlag.
  
 (* secrecy Pre Master secret *)
-(* query attacker: PMSa. *)
-(* query attacker: PMSb. *)
+private free PMSa.
+private free PMSb.
+query attacker: PMSa.
+query attacker: PMSb.
 
 (* secrecy Master secret *)
-(* query attacker: MSa. *)
-(* query attacker: MSb. *)
+private free MSa. 
+private free MSb.
+query attacker: MSa.
+query attacker: MSb.
 
 (* secrecy Finished message from the client *)
-(* query attacker: FinishedAFlag. *)
+private free FinishedAFlag.
+query attacker: FinishedAFlag.
 
 (* secrecy Finished message from the server *)
-(* query attacker: FinishedBFlag. *)
+private free FinishedBFlag.
+query attacker: FinishedBFlag. 
 
 (* authenticity of the server *)
-(* query evinj: endServerAuth(x, y, z) ==> evinj: beginServerAuth(x, y, z). *)
+query evinj: endServerAuth(x, y, z) ==> evinj: beginServerAuth(x, y, z).
 
 (* authenticity of the client *)
-(* query evinj: endClientAuth(x, y, z) ==> evinj: beginClientAuth(x, y, z). *)
+query evinj: endClientAuth(x, y, z) ==> evinj: beginClientAuth(x, y, z).
 
 (* Passport checks *)
-(* query evinj: endPassiveAuth(x, y, z) ==> evinj: beginPassiveAuth(x, y, z). *)
-(* query evinj: endActiveAuth(x, y, z) ==> evinj: beginActiveAuth(x, y, z). *)
+query evinj: endPassiveAuth(x, y, z) ==> evinj: beginPassiveAuth(x, y, z).
+query evinj: endActiveAuth(x, y, z) ==> evinj: beginActiveAuth(x, y, z).
 
 (* ABC transaction check *)
 query evinj: endTransaction(x, y, z) ==> evinj: beginTransaction(x, y, z).
 
 (* Dead code check *)
+private free clientFinished.
+private free serverFinished.
 query attacker: clientFinished.
 query attacker: serverFinished.
 
@@ -110,6 +123,12 @@ let Server =
 	
 	(* B generates fresh nonce Nb *)
 	new Nb;
+	
+	(* Moved new *)
+	new s;
+	
+	(* Create a new characteristic, such as "student" or "male" *)
+	new Char;
 	
 	(* Server picks a cipher suite and compression method from SupportedOptions *)
 	new SelectedOptions;
@@ -166,7 +185,7 @@ let Server =
 	let M = PRF((PMS, Na, Nb)) in
 	
 	(* B calculates Finished *)
-	let Finished = hash((CH, SH, SC, SKE, CCR, SHD, CC, CKE, CV, M)) in
+	let Finished = hash((CH, SH, SC, SKE, CCR, SHD, CC, CKE, CV, CCCS, M)) in
 	
 	(** server authentication **)
 	event beginServerAuth(A, B, Finished);
@@ -183,7 +202,6 @@ let Server =
 	(* End of TLS handshake *)	
 	
 	(* Set up a new secure channel encrypted with the newly generated session key *)
-	new s;
 	out(net, encrypt(s, serverK(Na, Nb, M)));
 	
 	(** Start of application data **)
@@ -213,7 +231,7 @@ let Server =
 	(* Start Active Authentication by sending a challenge *)
 	new AAC;
 
-	(* event beginActiveAuth(A, B, AAC); *) 
+	event beginActiveAuth(A, B, AAC);
 
 	out(s, (ActiveAuthenticationChallenge, AAC));
 
@@ -222,12 +240,9 @@ let Server =
 
 	let =AAC = unsign(AAResp, PKp) in
 	
-	(* event endActiveAuth(A, B, AAC); *)
+	event endActiveAuth(A, B, AAC);
 
 	(** Start of ABC logic **)
-
-	(* Create a new characteristic, such as "student" or "male" *)
-	new Char;
 
 	(* Turn the characteristic into an ABC using the issuer's private key *)
 	let ABC = sign(Char, SKi) in
@@ -252,20 +267,23 @@ let Server =
 
 	(* Secrecy checks *)
 	(
+		(** secrecy check on the secure channel **)
+		(out(s, Sb)) |
+	
 		(* secrecy of ABC data *)
-		(new abcFlag; out(ABCdata, abcFlag)) |
+		(out(ABCdata, abcFlag)) |
 		
-		(* secrecy check on the Master secret *)
-		(new MSb; out(M, MSb)) |
+		(** secrecy check on the Master secret **)
+		(out(M, MSb)) |
 		
-		(* secrecy check on the Pre-Master Secret *)
-		(new PMSb; out(PMS, PMSb)) |
+		(** secrecy check on the Pre-Master Secret **)
+		(out(PMS, PMSb)) |
 		
-		(* secrecy check on the finished *)
-		(new FinishedBFlag; out(Finished, FinishedBFlag)) |
+		(** secrecy check on the finished **)
+		(out(Finished, FinishedBFlag)) |
 		
-		(* dead code check *)
-		(new serverFinished; out(net, serverFinished))
+		(** dead code check **)
+		(out(net, serverFinished))
 	).
 	
 (**************************************************************************
@@ -273,18 +291,22 @@ let Server =
  **************************************************************************)
 let Client =
 	(** Initial agent data from a trusted channel **)
-	in(clientInit, (A, clientKeypair, clientCert));
+	in(clientInit, (A, B, clientKeypair, clientCert));
 	
 	let SKc = sk(clientKeypair) in
-	
-	(** Get the server’s name, perhaps as user input **)
-	in(net, B);
 	
 	(* A generates fresh nonce Na *)
 	new Na;
 	
 	(* Supported cipher suites and compression methods *)
 	new SupportedOptions;
+	
+	new Np; (* Generating fresh nonce for passport communication *)
+	new P; (* Create new passport agent (only part of the model, not part of passport) *)
+	new DG; (* 16 data groups in total *)
+	let SOD = hash(DG) in (* Contains hashes of all DG values *)
+	let passportKeypair = keypair(P) in (* Public key is technically stored in DG15 *)
+	let Passport = (DG, SOD, pk(passportKeypair)) in
 	
 	(* A −> B : ClientHello *)
 	let CH = (ClientHello, A, Na, SupportedOptions) in out(net, CH);
@@ -314,7 +336,7 @@ let Client =
 	let CKE = (ClientKeyExchange, exp(g, X)) in out(net, CKE);
 	
 	(* Creating hash of past messages *)
-	let cvHash = hash((CH, SH, SC, SKE, CCR, SHD CC, CKE)) in
+	let cvHash = hash((CH, SH, SC, SKE, CCR, SHD, CC, CKE)) in
 	
 	(** begin client authentication **)
 	event beginClientAuth(A, B, cvHash);
@@ -357,17 +379,14 @@ let Client =
 	(** Start of application data **)
 	
 	(* Build passport (data is actually received through a separate process) *)
-	new DG; (* 16 data groups in total *)
-	let SOD = hash(DG) in (* Contains hashes of all DG values *)
-	new P; (* Create new passport agent (only part of the model, not part of passport) *)
-	let passportKeypair = keypair(P) in (* Public key is technically stored in DG15 *)
-
-	let Passport = (DG, SOD, pk(passportKeypair)) in
+	
+	
+	
+	
 
 	event beginPassiveAuth(A, B, Passport); (* TODO: Add P to event? *)
 	
-	(* Generating fresh nonce for passport communication *)
-	new Np;
+	
 	
 	(* Encrypting passport using the session key *)
 	let EP = encrypt((Passport, A, B, Np), clientK(Na, Nb, M)) in
@@ -394,6 +413,7 @@ let Client =
 	in(s, ABCs); let (EA, HA) = ABCs in
 
 	(* When we receive attributes it is safe to assume active authentication succeeded *)
+	
 
 	(* Check the HMAC *)
 	let =HA = hmac(EA, serverK(Na, Nb, M)) in
@@ -411,21 +431,24 @@ let Client =
 	(* End of application data *)
 
 	(* Secrecy checks *)
-	(		
+	(
+		(** secrecy of secure channel **)
+		(out(s, Sa)) |
+		
 		(* secrecy of passport data *)
-		(new passportFlag; out(CP, passportFlag)) |
+		(out(CP, passportFlag)) |
 		
 		(** secrecy check on the Master secret **)
-		(new MSa; out(M, MSa)) |
+		(out(M, MSa)) |
 		
 		(** secrecy check on the Pre-Master Secret **)
-		(new PMSa; out(PMS, PMSa)) |
+		(out(PMS, PMSa)) |
 		
 		(** secrecy check on the Finished message **)
-		(new FinishedAFlag; out(Finished, FinishedAFlag)) |
+		(out(Finished, FinishedAFlag)) |
 		
 		(** dead code check **)
-		(new clientFinished; out(net, clientFinished))
+		(out(net, clientFinished))
 	).
 				
 (**************************************************************************
@@ -441,7 +464,7 @@ let initializer =
 	let serverCert = cert(S, pk(serverKeypair)) in
 	let issuerCert = cert(S, pk(issuerKeypair)) in
 	(
-		out(clientInit, (C, clientKeypair, clientCert)) |
+		out(clientInit, (C, S, clientKeypair, clientCert)) |
 		out(serverInit, (S, serverKeypair, serverCert)) |
 		out(initChannel, (S, issuerKeypair, issuerCert)) |
 		out(net, S) (* Inform clients of the central server (e.g. IP address) *)
