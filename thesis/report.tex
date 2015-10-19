@@ -8,8 +8,13 @@
 \usepackage{subfig}
 \usepackage{wrapfig}
 \usepackage{verbatimbox}
-\usepackage{microtype}
-%\usepackage{parskip}
+\usepackage[activate={true,nocompatibility},final,tracking=true,kerning=true,spacing=true,factor=1100,stretch=10,shrink=10]{microtype}
+\microtypecontext{spacing=nonfrench}
+% activate={true,nocompatibility} - activate protrusion and expansion
+% final - enable microtype; use "draft" to disable
+% tracking=true, kerning=true, spacing=true - activate these techniques
+% factor=1100 - add 10% to the protrusion amount (default is 1000)
+% stretch=10, shrink=10 - reduce stretchability/shrinkability (default is 20/20)
 \parskip=7pt
 \parindent=0pt
 %\usepackage{apacite}
@@ -34,18 +39,17 @@
 \newcommand{\var}[1]{\mathit{#1}}
 
 \author{Geert Smelt\thanks{\href{mailto:gasmelt@student.ru.nl}{\nolinkurl{gasmelt@student.ru.nl}}}}
-\title{IRMA Assurer}
+\title{Verified IRMA Assurer}
 \subtitle{Securely storing identity document chip data onto IRMA cards}
 \date{\today}
 \dedication{Kerckhoffs Institute\\Supervisor: Bart Jacobs}
 
 \begin{document}
-
 \maketitle
-%\vspace{2.5cm}
 
 \begin{abstract}
-\noindent \ldots
+\noindent
+IRMA Assurer is an ideal method for new adopters of IRMA technology to obtain an initial set of Attribute Based Credentials using one's identity document such as a passport. Due to the nature of IRMA such an initialization is required to adhere to strict cryptographic rules. In this paper we describe the theory behind IRMA and passport security. Furthermore we specify guidelines which such a protocol has to follow and we design the Assurer protocol. We prove the soundness and cryptographic security of our protocol by creating a model of it in the Pi Calculus and running the ProVerif cryptographic protocol verifier on it.
 \end{abstract}
 
 \input{introduction}
