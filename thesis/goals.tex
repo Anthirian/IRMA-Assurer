@@ -29,11 +29,10 @@ This section describes possible attack scenarios with respect to the goals descr
   \item An attacker intercepts and later reuses attribute data already stored onto a card for storing on another card. This attack causes the attacker to be able to commit fraud.
   \item An attacker replays the sending of passport data to obtain another identical set of attribute data. This attack effectively facilitates the cloning of cards, provided the server does not constrain the number of times attributes are given out.
   \item An attacker uses different attributes from different people to authenticate. This attack allows combining attribute data to achieve the required combination for authentication. 
-  \item \textsc{TODO: Side-channel attacks?}
   \item An attacker causes a denial of service on the client. This may cause clients to not receive the requested attribute data, causing them to restart the process. This does not lead to a security risk.
   \item An attacker causes a denial of service on the server. This halts all activity surrounding the issuance of attribute data, but does not lead to a security risk.
-  \item An attacker shows up with someone else's passport. \texttt{TODO: Impact?}
-  \item An attacker switches out the non-initialized IRMA cards before they reach the assurer's office. \texttt{TODO: Impact?}
+  \item An attacker shows up with someone else's passport. At worst this could cause incorrect attributes to be placed onto an IRMA card, however this is mitigated by verifying the photograph printed on the passport. In order to pass this test the attacker has to forge the passport, which is detected upon verification by either the client or the server. This scenario therefore is unlikely.
+  \item An attacker switches out the non-initialized IRMA cards before they reach the assurer's office. This also is a non-issue, because these cards only contain a unique ID at this point in the process. This ID is not used by the relying parties for verification of attributes and therefore has no impact on the security and privacy of the system.
 \end{itemize}
 
 \subsubsection{Perfect Forward Secrecy}
