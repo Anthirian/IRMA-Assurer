@@ -1,9 +1,6 @@
 (**************************************************************************
  * DEFINITIONS                                                            *
  **************************************************************************)
- 
-(* param verboseClauses = explained. *)
-(* param traceDisplay = long. *)
 
 (* A public channel *)
 free net.
@@ -19,7 +16,7 @@ fun hash/1. 	(* hashing *)
 fun hmac/2.
 fun encrypt/2. 	(* symmetric key encryption *)
 fun sign/2. 	(* Public key signing *)
-fun sk/1. 	(* Extracts secret key of a keypair *)
+fun sk/1. 		(* Extracts secret key of a keypair *)
 fun pk/1. 		(* Extracts public part of a keypair *)
 
 (* The cryptographic destructors *)
