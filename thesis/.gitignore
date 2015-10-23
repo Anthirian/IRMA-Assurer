@@ -8,6 +8,8 @@
 *.fdb_latexmk
 *.fls
 *.log
+*.lot
+*.lof
 *.out
 *.run.xml
 report.pdf
