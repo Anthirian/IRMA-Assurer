@@ -1,2 +1,543 @@
-\section{Model}
+\chapter{Model}
 \label{app:model}
+%\setlength{\thickmuskip}{0mu}
+
+\section{Definitions}
+\begin{Verbatim}[commandchars=\\\{\}]
+\kwcom{(* A public channel *)}
+\kwl{free} \kwc{net}.
+
+\kwcom{(* Message tags *)}
+\kwl{free} \kwc{ClientHello}, \kwc{ClientCertificateRequest}, \kwc{ClientCertificate}, 
+     \kwc{ClientKeyExchange}, \kwc{CertificateVerify}, \kwc{ClientChangeCipherSpec}, 
+     \kwc{ClientFinished}.
+\kwl{free} \kwc{ServerHello}, \kwc{ServerCertificate}, \kwc{ServerKeyExchange}, \kwc{ServerHelloDone}, 
+     \kwc{ServerChangeCipherSpec}, \kwc{ServerFinished}.
+\kwl{free} \kwc{ClientPassport}, \kwc{ActiveAuthenticationChallenge}, 
+     \kwc{ActiveAuthenticationReponse}.
+
+\kwcom{(* Agent initialization is done over a private channel *)}
+\kwl{private} \kwl{free} \kwc{clientInit}, \kwc{serverInit}, \kwc{initChannel}.
+
+\kwcom{(* Initialization functions *)}
+\kwl{private} \kwl{fun} \kwf{cert}/2.     \kwcom{(* Generating certificates for agents *)}
+\kwl{private} \kwl{fun} \kwf{keypair}/1.  \kwcom{(* Generating assymmetric keypairs for agents *)}
+
+\kwt{(** The cryptographic constructors **)}
+\kwl{fun} \kwf{hash}/1.             \kwcom{(* Hashing *)}
+\kwl{fun} \kwf{hmac}/2.             \kwcom{(* Keyed-hash message authentication code *)}
+\kwl{fun} \kwf{encrypt}/2.          \kwcom{(* Symmetric key encryption *)}
+\kwl{fun} \kwf{sign}/2.             \kwcom{(* Public key signing *)}
+\kwl{fun} \kwf{sk}/1.               \kwcom{(* Extracts secret key of a keypair *)}
+\kwl{fun} \kwf{pk}/1.               \kwcom{(* Extracts public part of a keypair *)}
+
+\kwcom{(* The cryptographic destructors *)}
+\kwcom{(* symmetric key decryption *)}
+\kwl{reduc} \kwf{decrypt}(\kwf{encrypt}(\var{x}, \var{y}), \var{y}) = \var{x}.
+\kwcom{(* signature verification *)}
+\kwl{reduc} \kwf{unsign}(\kwf{sign}(\var{x}, \kwf{sk}(\var{y})), \kwf{pk}(\var{y})) = \var{x}.
+\kwcom{(* verification of the agent as owner of the}
+   \kwcom{key and retrieving the key from the certificate *)}
+\kwl{reduc} \kwf{verify}(\kwf{cert}(\var{x}, \var{y}), \var{x}) = \var{y}.
+
+\kwcom{(* Pseudo-random-number function for generating TLS session key}
+   \kwcom{randomness *)}
+\kwl{fun} \kwf{PRF}/1.
+
+\kwcom{(* Symmetric key construction *)}
+\kwl{fun} \kwf{clientK}/3.
+\kwl{fun} \kwf{serverK}/3.
+
+\kwcom{(* Diffie-Hellman computations *)}
+\kwl{fun} \kwf{G}/0.                \kwcom{(* Generator point of the group *)}
+\kwl{fun} \kwf{sm}/2.               \kwcom{(* Scalar multiplication *)}
+\kwcom{(* Equality property: x . yG = y . xG *)}
+\kwl{equation} \kwf{sm}(\var{y}, \kwf{sm}(\var{x}, \kwf{G})) = \kwf{sm}(\var{x}, \kwf{sm}(\var{y}, \kwf{G})).
+\end{Verbatim}
+
+\section{Queries}
+\begin{Verbatim}[commandchars=\\\{\},codes={\catcode`$=3}]
+\kwcom{(* secrecy secure channel *)}
+\kwl{private} \kwl{free} \kwc{Sa}.
+\kwl{private} \kwl{free} \kwc{Sb}.
+\kwl{query} \var{attacker}{:} \kwc{Sa}.
+\kwl{query} \var{attacker}{:} \kwc{Sb}.
+
+\kwcom{(* secrecy passport *)}
+\kwl{private} \kwl{free} \kwc{passportFlag}.
+\kwl{query} \var{attacker}{:} \kwc{passportFlag}.
+
+\kwcom{(* secrecy ABCs *)}
+\kwl{private} \kwl{free} \kwc{abcFlag}.
+\kwl{query} \var{attacker}{:} \kwc{abcFlag}.
+
+\kwcom{(* secrecy Pre Master secret *)}
+\kwl{private} \kwl{free} \kwc{PMSa}.
+\kwl{private} \kwl{free} \kwc{PMSb}.
+\kwl{query} \var{attacker}{:} \kwc{PMSa}.
+\kwl{query} \var{attacker}{:} \kwc{PMSb}.
+
+\kwcom{(* secrecy Master secret *)}
+\kwl{private} \kwl{free} \kwc{MSa}.
+\kwl{private} \kwl{free} \kwc{MSb}.
+\kwl{query} \var{attacker}{:} \kwc{MSa}.
+\kwl{query} \var{attacker}{:} \kwc{MSb}.
+
+\kwcom{(* secrecy Finished message from the client *)}
+\kwl{private} \kwl{free} \kwc{FinishedAFlag}.
+\kwl{query} \var{attacker}{:} \kwc{FinishedAFlag}.
+
+\kwcom{(* secrecy Finished message from the server *)}
+\kwl{private} \kwl{free} \kwc{FinishedBFlag}.
+\kwl{query} \var{attacker}{:} \kwc{FinishedBFlag}.
+
+\kwcom{(* authenticity of the server *)}
+\kwl{query} \var{evinj}{:} \var{endServerAuth}(\var{x}, \var{y}, \var{z}) $\Longrightarrow$ \var{evinj}{:} \var{beginServer-}
+\var{Auth}(\var{x}, \var{y}, \var{z}).
+
+\kwcom{(* authenticity of the client *)}
+\kwl{query} \var{evinj}{:} \var{endClientAuth}(\var{x}, \var{y}, \var{z}) $\Longrightarrow$ \var{evinj}{:} \var{beginClient-}
+\var{Auth}(\var{x}, \var{y}, \var{z}).
+
+\kwcom{(* Passport checks *)}
+\kwl{query} \var{evinj}{:} \var{endPassiveAuth}(\var{x}, \var{y}, \var{z}) $\Longrightarrow$ \var{evinj}{:} \var{beginPassive-}
+\var{Auth}(\var{x}, \var{y}, \var{z}).
+\kwl{query} \var{evinj}{:} \var{endActiveAuth}(\var{x}, \var{y}, \var{z}) $\Longrightarrow$ \var{evinj}{:} \var{beginActive-}
+\var{Auth}(\var{x}, \var{y}, \var{z}).
+
+\kwcom{(* ABC transaction check *)}
+\kwl{query} \var{evinj}{:} \var{endTransaction}(\var{x}, \var{y}, \var{z}) $\Longrightarrow$ \var{evinj}{:} \var{beginTrans-}
+      \var{action}(\var{x}, \var{y}, \var{z}).
+
+\kwcom{(* Dead code check *)}
+\kwl{private} \kwl{free} \kwc{clientFinished}.
+\kwl{private} \kwl{free} \kwc{serverFinished}.
+\kwl{query} \var{attacker}{:} \kwc{clientFinished}.
+\kwl{query} \var{attacker}{:} \kwc{serverFinished}.
+\end{Verbatim}
+
+\section{Server process}
+\begin{Verbatim}[commandchars=\\\{\},codes={\catcode`$=3}]
+\kwl{let} \var{Server} = 
+\kwt{(** Start of initialization **)}
+
+\kwcom{(* B receives initial agent data over a trusted channel *)}
+\kwl{in}(\kwc{serverInit}, (\var{B}, \var{serverKeypair}, \var{serverCert}));
+
+\kwcom{(* B receives the issuer keypair over another trusted channel,}
+   \kwcom{double checking to make sure it is in fact intended for B *)}
+\kwl{in}(\kwc{initChannel}, (=\var{B}, \var{issuerKeypair}, \var{issuerCert}));
+
+\kwcom{(* B retrieves the secret keys from both keypairs *)}
+\kwcom{(* Secret key used for communication *)}
+\kwl{let} \var{SKs} = \kwf{sk}(\var{serverKeypair}) \kwl{in}
+\kwcom{(* Secret key used for signing of attributes *)}
+\kwl{let} \var{SKi} = \kwf{sk}(\var{issuerKeypair}) \kwl{in}
+
+\kwt{(** End of initialization **)}
+
+\kwt{(** Start of TLS handshake **)}
+
+\kwt{(** Replication to model arbitrary sessions **)}
+!
+
+\kwcom{(* B receives ClientHello from A *)}
+\kwl{in}(\kwc{net}, \var{CH}); \kwl{let}\ (=\kwc{ClientHello}, \var{A}, \var{Na}, \var{SupportedOptions}) = \var{CH} \kwl{in}
+
+\kwcom{(* B generates fresh nonce Nb *)}
+\kwl{new} \var{Nb}; 
+
+\kwcom{(* B creates a new characteristic, such as "student" or "male" *)}
+\kwl{new} \var{Char};
+
+\kwcom{(* B picks a cipher suite and compression method from}
+   \kwcom{SupportedOptions received from A *)}
+\kwl{new} \var{SelectedOptions};
+
+\kwcom{(* B sends ServerHello to A *)}
+\kwl{let} \var{SH} = (\kwc{ServerHello}, \var{B}, \var{Nb}, \var{SelectedOptions}) \kwl{in} \kwl{out}(\kwc{net}, \var{SH});
+
+\kwcom{(* B sends ServerCertificate to A *)}
+\kwl{let} \var{SC} = (\kwc{ServerCertificate}, \var{serverCert}) \kwl{in} \kwl{out}(\kwc{net}, \var{SC});
+
+\kwcom{(* B generates Diffie-Hellman Key Exchange parameters *)}
+\kwl{new} \var{p}; \kwcom{(* Prime modulus *)}
+\kwl{new} \var{n}; \kwcom{(* Order of generator point G *)}
+\kwl{new} \var{h}; \kwcom{(* Cofactor *)}
+\kwl{new} \var{a}; \kwcom{(* Elliptic curve parameter 1 *)}
+\kwl{new} \var{b}; \kwcom{(* Elliptic curve parameter 2 *)}
+\kwl{new} \var{beta}; \kwcom{(* Server's secret multiplier *)}
+
+\kwcom{(* B sends ServerKeyExchange to A, featuring all public ECDHE}
+   \kwcom{parameters *)}
+\kwl{let} \var{SKE} = (\kwc{ServerKeyExchange}, \var{p}, \var{a}, \var{b}, \kwf{G}, \var{n}, \var{h}, \kwf{sm}(\var{beta}, \kwf{G}),
+\kwf{sign}((\var{Na}, \var{Nb}, \var{p}, \var{a}, \var{b}, \kwf{G}, \var{n}, \var{h}, \kwf{sm}(\var{beta}, \kwf{G})), \var{SKs})) \kwl{in} \kwl{out}(\kwc{net},
+\var{SKE});
+
+\kwcom{(* B creates a list of acceptable certificate types and CAs *)}
+\kwl{new} \var{Acceptable{\_}certificate{\_}types};
+\kwl{new} \var{Acceptable{\_}certificate{\_}authorities};
+
+\kwcom{(* B sends ClientCertificateRequest to A *)}
+\kwl{let} \var{CCR} = (\kwc{ClientCertificateRequest}, \var{Acceptable{\_}certificate{\_}}
+\var{types}, \var{Acceptable{\_}certificate{\_}authorities}) \kwl{in} \kwl{out}(\kwc{net}, \var{CCR});
+
+\kwcom{(* B sends ServerHelloDone to A *)}
+\kwl{let} \var{SHD} = \kwc{ServerHelloDone} \kwl{in} \kwl{out}(\kwc{net}, \var{SHD});
+
+\kwcom{(* B receives ClientCertificate from A *)}
+\kwl{in}(\kwc{net}, \var{CC}); \kwl{let}\ ( = \kwc{ClientCertificate}, \var{clientCert}) = \var{CC} \kwl{in}
+
+\kwcom{(* B receives ClientKeyExchange from A, containing the remaining}
+   \kwcom{ECDHE parameters *)}
+\kwl{in}(\kwc{net}, \var{CKE}); \kwl{let}( = \kwc{ClientKeyExchange}, \var{AG}) = \var{CKE} \kwl{in}
+
+\kwcom{(* B receives CertificateVerify from A *)}
+\kwl{let} \var{unsignKey} = \kwf{verify}(\var{clientCert}, \var{A}) \kwl{in}
+\kwl{in}(\kwc{net}, \var{CV}); \kwl{let} (=\kwc{CertificateVerify}, \var{cvHash}) = \kwf{unsign}(\var{CV}, \var{un-}
+\var{signKey}) \kwl{in}
+
+\kwcom{(* B verifies client signature *)} 
+\kwl{let} = \var{cvHash} = \kwf{hash}((\var{CH}, \var{SH}, \var{SC}, \var{SKE}, \var{CCR}, \var{SHD}, \var{CC}, \var{CKE})) \kwl{in}
+
+\kwt{(** End of Client authentication **)}
+\kwl{event} \var{endClientAuth}(\var{A}, \var{B}, \var{cvHash});
+
+\kwcom{(* B calculates the Pre-Master Secret *)}
+\kwl{let} \var{PMS} = \kwf{sm}(\var{beta}, \var{AG}) \kwl{in}
+
+\kwcom{(* B receives ClientChangeCipherSpec from A *)}
+\kwl{in}(\kwc{net}, \var{CCCS}); \kwl{let} = \kwc{ClientChangeCipherSpec} = \var{CCCS} \kwl{in}
+
+\kwcom{(* B receives Finished from A *)}
+\kwl{in}(\kwc{net}, \var{FA});
+
+\kwcom{(* B calculates the Master secret *)}
+\kwl{let} \var{M} = \kwf{PRF}((\var{PMS}, \var{Na}, \var{Nb})) \kwl{in}
+
+\kwcom{(* B calculates Finished *)}
+\kwl{let} \var{Finished} = \kwf{hash}((\var{CH}, \var{SH}, \var{SC}, \var{SKE}, \var{CCR}, \var{SHD}, \var{CC}, \var{CKE}, \var{CV},
+\var{CCCS}, \var{M})) \kwl{in}
+
+\kwt{(** Start of Server authentication **)}
+\kwl{event} \var{beginServerAuth}(\var{A}, \var{B}, \var{Finished});
+
+\kwcom{(* B sends ServerChangeCipherSpec to A, indicating intention to}
+   \kwcom{switch to the encryption negotiated above *)}
+\kwl{let} \var{SCCS} = \kwc{ServerChangeCipherSpec} \kwl{in} \kwl{out}(\kwc{net}, \var{SCCS});
+
+\kwcom{(* B sends Finished to A *)}
+\kwl{out}(\kwc{net}, \kwf{encrypt}(\var{Finished}, \kwf{serverK}(\var{Na}, \var{Nb}, \var{M})));
+
+\kwcom{(* B verifies received Finished *)}
+\kwl{let} = \var{Finished} = \kwf{decrypt}(\var{FA}, \kwf{clientK}(\var{Na}, \var{Nb}, \var{M})) \kwl{in}
+
+\kwt{(** End of TLS handshake **)}
+
+\kwt{(** Start of application data **)}
+
+\kwcom{(* B creates a new channel secured with the newly agreed upon}
+   \kwcom{session key *)}
+\kwl{new} \var{s};
+
+\kwcom{(* B sends the channel to A after encrypting *)}
+\kwl{out}(\kwc{net}, \kwf{encrypt}(\var{s}, \kwf{serverK}(\var{Na}, \var{Nb}, \var{M})));
+
+\kwt{(** Start of application data **)}
+
+\kwcom{(* B receives the encrypted passport and HMAC from A *)}
+\kwl{in}(\var{s}, \var{CP}); \kwl{let} (=\kwc{ClientPassport}, \var{EP}, \var{HP}) = \var{CP} \kwl{in}
+\kwcom{(* B decrypts the passport data *)}
+\kwl{let} \var{DP} = \kwf{decrypt}(\var{EP}, \kwf{clientK}(\var{Na}, \var{Nb}, \var{M})) \kwl{in}
+\kwcom{(* B verifies the HMAC *)}
+\kwl{let} = \var{HP} = \kwf{hmac}(\var{EP}, \kwf{clientK}(\var{Na}, \var{Nb}, \var{M})) \kwl{in}
+\kwcom{(* B verifies the participants and stores the nonce *)}
+\kwl{let}\ (\var{Passport},  = \var{A},  = \var{B}, \var{Nonce}) = \var{DP} \kwl{in}
+\kwcom{(* B stores passport data, public key and hash *)}
+\kwcom{(* Note: If BAC is required, everything is inaccessible until BAC}
+   \kwcom{is performed *)}
+\kwcom{(* We assume BAC is performed once we get to this part *)}
+\kwl{let}\ (\var{DG}, \var{SOD}, \var{PKp}) = \var{Passport} \kwl{in}
+
+\kwcom{(* B performs Passive Authentication *)}
+\kwl{let} = \var{SOD} = \kwf{hash}(\var{DG}) \kwl{in}
+
+\kwl{event} \var{endPassiveAuth}(\var{A}, \var{B}, \var{Passport});
+
+\kwt{(** Start of Active Authentication **)}
+
+\kwcom{(* B creates a challenge *)}
+\kwl{new} \var{AAC};
+
+\kwl{event} \var{beginActiveAuth}(\var{A}, \var{B}, \var{AAC});
+
+\kwcom{(* B sends ActiveAuthenticationChallenge to A *)}
+\kwl{out}(\var{s}, (\kwc{ActiveAuthenticationChallenge}, \var{AAC}));
+
+\kwcom{(* B receives ActiveAuthenticationResponse from A *)}
+\kwl{in}(\var{s}, \var{AAR}); \kwl{let} (=\kwc{ActiveAuthenticationReponse}, \var{AAResp}) = \var{AAR} \kwl{in}
+
+\kwcom{(* B verifies that it is in fact the correct solution to the}
+   \kwcom{challenge *)}
+\kwl{let} = \var{AAC} = \kwf{unsign}(\var{AAResp}, \var{PKp}) \kwl{in}
+
+\kwt{(** End of Active Authentication **)}
+\kwl{event} \var{endActiveAuth}(\var{A}, \var{B}, \var{AAC});
+
+\kwt{(** Start of ABC logic **)}
+
+\kwcom{(* B signs the characteristic, turning it into an ABC,}
+   \kwcom{using the issuer's private key *)}
+\kwl{let} \var{ABC} = \kwf{sign}(\var{Char}, \var{SKi}) \kwl{in}
+
+\kwl{event} \var{beginTransaction}(\var{A}, \var{B}, \var{ABC});
+
+\kwcom{(* B creates attribute data (AD) containing the credential,}
+   \kwcom{participants and the previously received nonce *)}
+\kwl{let} \var{AD} = (\var{ABC}, \var{A}, \var{B}, \var{Nonce}) \kwl{in}
+
+\kwcom{(* B encrypts the attribute data (EA) *)}
+\kwl{let} \var{EA} = \kwf{encrypt}(\var{AD}, \kwf{serverK}(\var{Na}, \var{Nb}, \var{M})) \kwl{in}
+
+\kwcom{(* B generates the HMAC of the encrypted attributes (HA) *)}
+\kwl{let} \var{HA} = \kwf{hmac}(\var{EA}, \kwf{serverK}(\var{Na}, \var{Nb}, \var{M})) \kwl{in}
+
+\kwcom{(* B combines both parts and sends the message to A *)}
+\kwl{let} \var{ABCdata} = (\var{EA}, \var{HA}) \kwl{in} \kwl{out}(\var{s}, \var{ABCdata});
+
+\kwt{(** End of ABC logic **)}
+
+\kwt{(** End of application data **)}
+
+\kwcom{(* Secrecy checks *)}
+(
+  \kwcom{(* secrecy check on the secure channel *)}
+  (\kwl{out}(\var{s}, \kwc{Sb})) $\mid$
+
+  \kwcom{(* secrecy of ABC data *)}
+  (\kwl{out}(\var{ABCdata}, \kwc{abcFlag})) $\mid$
+
+  \kwcom{(* secrecy check on the Master secret *)}
+  (\kwl{out}(\var{M}, \kwc{MSb})) $\mid$
+
+  \kwcom{(* secrecy check on the Pre-Master Secret *)}
+  (\kwl{out}(\var{PMS}, \kwc{PMSb})) $\mid$
+
+  \kwcom{(* secrecy check on the finished **)}
+  (\kwl{out}(\var{Finished}, \kwc{FinishedBFlag})) $\mid$
+
+  \kwcom{(* dead code check *)}
+  (\kwl{out}(\kwc{net}, \kwc{serverFinished}))
+).
+\end{Verbatim}
+
+\section{Client process}
+\begin{Verbatim}[commandchars=\\\{\}, codes={\catcode`$=3}]
+\kwl{let} \var{Client} = 
+\kwt{(** Start of initialization **)}
+
+\kwcom{(* A receives initial agent data over a trusted channel *)}
+\kwl{in}(\kwc{clientInit}, (\var{A}, \var{B}, \var{clientKeypair}, \var{clientCert}));
+
+\kwcom{(* A extracts the secret key from the keypair *)}
+\kwl{let} \var{SKc} = \kwf{sk}(\var{clientKeypair}) \kwl{in}
+
+\kwt{(** End of initialization **)}
+
+\kwt{(** Start of TLS handshake **)}
+
+\kwcom{(* A generates fresh nonce Na *)}
+\kwl{new} \var{Na};
+
+\kwcom{(* A lists supported cipher suites and compression methods *)}
+\kwl{new} \var{SupportedOptions};
+
+\kwl{new} \var{Np}; \kwcom{(* A generates fresh nonce for passport communication *)}
+\kwl{new} \var{P};  \kwcom{(* A creates passport agent (required for the model) *)}
+\kwl{new} \var{DG}; \kwcom{(* A creates the DataGroups *)}
+\kwl{let} \var{SOD} = \kwf{hash}(\var{DG}) \kwl{in} \kwcom{(* Contains hashes of all DG values *)}
+\kwl{let} \var{passportKeypair} = \kwf{keypair}(\var{P}) \kwl{in}
+\kwl{let} \var{Passport} = (\var{DG}, \var{SOD}, \kwf{pk}(\var{passportKeypair})) \kwl{in}
+
+\kwcom{(* A sends ClientHello to B *)}
+\kwl{let} \var{CH} = (\kwc{ClientHello}, \var{A}, \var{Na}, \var{SupportedOptions}) \kwl{in} \kwl{out}(\kwc{net}, \var{CH});
+
+\kwcom{(* A receives ServerHello from B *)}
+\kwl{in}(\kwc{net}, \var{SH}); \kwl{let}\ (=\kwc{ServerHello}, =\var{B}, \var{Nb}, \var{SelectedOptions}) = \var{SH} \kwl{in}
+
+\kwcom{(* A receives ServerCertificate from B *)}
+\kwl{in}(\kwc{net}, \var{SC}); \kwl{let}\ (=\kwc{ServerCertificate}, \var{serverCert}) = \var{SC} \kwl{in}
+
+\kwcom{(* A receives ServerKeyExchange from B and stores parameters *)}
+\kwl{in}(\kwc{net}, \var{SKE}); \kwl{let}\ (=\kwc{ServerKeyExchange}, \var{p}, \var{a}, \var{b}, =\kwf{G}, \var{n}, \var{h}, \var{BG},
+\var{DHSignature}) = \var{SKE} \kwl{in}
+
+\kwcom{(* A retrieves the server's public key from its certificate *)}
+\kwl{let} \var{unsignKey} = \kwf{verify}(\var{serverCert}, \var{B}) \kwl{in}
+
+\kwcom{(* A checks the signature on the parameters to ensure the message}
+   \kwcom{was really sent by B *)}
+\kwl{let} (=\var{Na}, =\var{Nb}, =\var{p}, =\var{a}, =\var{b}, =\kwf{G}, =\var{n}, =\var{h}, =\var{BG}) = \kwf{unsign}(\var{DHSignature},
+\var{unsignKey}) \kwl{in}
+
+\kwcom{(* A receives ClientCertificateRequest from B *)}
+\kwl{in}(\kwc{net}, \var{CCR}); \kwl{let}\ (=\kwc{ClientCertificateRequest}, \var{Acceptable{\_}certifi-}
+\var{cate{\_}types}, \var{Acceptable{\_}certificate{\_}authorities}) = \var{CCR} \kwl{in}
+
+\kwcom{(* A receives ServerHelloDone from B *)}
+\kwl{in}(\kwc{net}, \var{SHD}); \kwl{let} = \kwc{ServerHelloDone} = \var{SHD} \kwl{in}
+
+\kwcom{(* A sends ClientCertificate to B *)}
+\kwl{let} \var{CC} = (\kwc{ClientCertificate}, \var{clientCert}) \kwl{in} \kwl{out}(\kwc{net}, \var{CC});
+
+\kwcom{(* A generates a new secret multiplier *)}
+\kwl{new} \var{alpha};
+
+\kwcom{(* A sends ClientKeyExchange to B *)}
+\kwl{let} \var{CKE} = (\kwc{ClientKeyExchange}, \kwf{sm}(\var{alpha}, \kwf{G})) \kwl{in} \kwl{out}(\kwc{net}, \var{CKE});
+
+\kwcom{(* A creates a hash of the past messages *)}
+\kwl{let} \var{cvHash} = \kwf{hash}((\var{CH}, \var{SH}, \var{SC}, \var{SKE}, \var{CCR}, \var{SHD}, \var{CC}, \var{CKE})) \kwl{in}
+
+\kwt{(** Start of client authentication **)}
+\kwl{event} \var{beginClientAuth}(\var{A}, \var{B}, \var{cvHash});
+
+\kwcom{(* A sends CertificateVerify to B *)}
+\kwl{let} \var{CV} = \kwf{sign}((\kwc{CertificateVerify}, \var{cvHash}), \var{SKc}) \kwl{in} \kwl{out}(\kwc{net}, \var{CV});
+
+\kwcom{(* A computes the pre-master secret (X $\times$ YG) *)}
+\kwl{let} \var{PMS} = \kwf{sm}(\var{alpha}, \var{BG}) \kwl{in}
+
+\kwcom{(* A computes the master secret *)}
+\kwl{let} \var{M} = \kwf{PRF}((\var{PMS}, \var{Na}, \var{Nb})) \kwl{in}
+
+\kwcom{(* A sends ClientChangeCipherSpec, indicating intention to switch}
+   \kwcom{to the encryption negotiated above *)}
+\kwl{let} \var{CCCS} = \kwc{ClientChangeCipherSpec} \kwl{in} \kwl{out}(\kwc{net}, \var{CCCS});
+
+\kwcom{(* A computes Finished using the hash function *)}
+\kwl{let} \var{Finished} = \kwf{hash}((\var{CH}, \var{SH}, \var{SC}, \var{SKE}, \var{CCR}, \var{SHD}, \var{CC}, \var{CKE}, \var{CV},
+\var{CCCS}, \var{M})) \kwl{in}
+
+\kwcom{(* A sends Finished to B *)}
+\kwl{out}(\kwc{net}, \kwf{encrypt}(\var{Finished}, \kwf{clientK}(\var{Na}, \var{Nb}, \var{M})));
+
+\kwcom{(* A receives ServerChangeCipherSpec from B, indicating a switch}
+   \kwcom{to the encryption negotiated above *)}
+\kwl{in}(\kwc{net}, \var{SCCS}); \kwl{let} = \kwc{ServerChangeCipherSpec} = \var{SCCS} \kwl{in}
+
+\kwcom{(* A receives Finished from B *)}
+\kwl{in}(\kwc{net}, \var{FB});
+
+\kwcom{(* A verifies received finished *)}
+\kwl{let} = \var{Finished} = \kwf{decrypt}(\var{FB}, \kwf{serverK}(\var{Na}, \var{Nb}, \var{M})) \kwl{in}
+
+\kwt{(** End of server authentication **)}
+\kwl{event} \var{endServerAuth}(\var{A}, \var{B}, \var{Finished});
+
+\kwt{(** End of TLS handshake **)}
+
+\kwcom{(* A receives the secure channel created by the server *)}
+\kwl{in}(\kwc{net}, \var{newChannel}); \kwl{let} \var{s} = \kwf{decrypt}(\var{newChannel}, \kwf{serverK}(\var{Na}, \var{Nb},
+\var{M})) \kwl{in}
+
+\kwt{(** Start of application data **)}
+
+\kwt{(** Start of Passive Authentication **)}
+\kwl{event} \var{beginPassiveAuth}(\var{A}, \var{B}, \var{Passport}); 
+
+\kwcom{(* A encrypts the passport using the session key *)}
+\kwl{let} \var{EP} = \kwf{encrypt}((\var{Passport}, \var{A}, \var{B}, \var{Np}), \kwf{clientK}(\var{Na}, \var{Nb}, \var{M})) \kwl{in}
+
+\kwcom{(* A computes the HMAC of the encrypted passport,}
+   \kwcom{again reusing the session key *)}
+\kwl{let} \var{HP} = \kwf{hmac}(\var{EP}, \kwf{clientK}(\var{Na}, \var{Nb}, \var{M})) \kwl{in}
+
+\kwcom{(* A combines both parts and sends the combined message *)}
+\kwl{let} \var{CP} = (\kwc{ClientPassport}, \var{EP}, \var{HP}) \kwl{in} \kwl{out}(\var{s}, \var{CP});
+
+\kwt{(** Start of Active Authentication **)}
+
+\kwcom{(* A receives a challenge from B *)}
+\kwl{in}(\var{s}, \var{AAC}); \kwl{let}\ ( = \kwc{ActiveAuthenticationChallenge}, \var{Ch}) = \var{AAC} \kwl{in}
+
+\kwcom{(* A sends the response to the AA challenge *)}
+\kwl{let} \var{AAR} = (\kwc{ActiveAuthenticationReponse}, \kwf{sign}(\var{Ch}, \kwf{sk}(\var{passport-}
+\var{Keypair}))) \kwl{in} \kwl{out}(\var{s}, \var{AAR});
+
+\kwt{(** End of Active Authentication **)}
+
+\kwt{(** Start of ABC logic **)}
+
+\kwcom{(* A receives the combined message from B *)}
+\kwl{in}(\var{s}, \var{ABCs}); \kwl{let}\ (\var{EA}, \var{HA}) = \var{ABCs} \kwl{in}
+
+\kwcom{(* A checks the HMAC *)}
+\kwl{let} = \var{HA} = \kwf{hmac}(\var{EA}, \kwf{serverK}(\var{Na}, \var{Nb}, \var{M})) \kwl{in}
+
+\kwcom{(* A decrypts the Attribute Data (AD) *)}
+\kwl{let} \var{AD} = \kwf{decrypt}(\var{EA}, \kwf{serverK}(\var{Na}, \var{Nb}, \var{M})) \kwl{in}
+
+\kwcom{(* A verifies the participants and nonce and stores the ABC(s) *)}
+\kwl{let}\ (\var{ABCdata},  = \var{A},  = \var{B},  = \var{Np}) = \var{AD} \kwl{in}
+
+\kwl{event} \var{endTransaction}(\var{A}, \var{B}, \var{ABCdata});
+
+\kwt{(** End of ABC logic **)}
+
+\kwt{(** End of application data **)}
+
+\kwt{(** Secrecy checks **)}
+(
+  \kwcom{(* secrecy of secure channel *)}
+  (\kwl{out}(\var{s}, \kwc{Sa})) $\mid$
+  
+  \kwcom{(* secrecy of passport data *)}
+  (\kwl{out}(\var{CP}, \kwc{passportFlag})) $\mid$
+  
+  \kwcom{(* secrecy check on the Master secret *)}
+  (\kwl{out}(\var{M}, \kwc{MSa})) $\mid$
+  
+  \kwcom{(* secrecy check on the Pre-Master Secret *)}
+  (\kwl{out}(\var{PMS}, \kwc{PMSa})) $\mid$
+  
+  \kwcom{(* secrecy check on the Finished message *)}
+  (\kwl{out}(\var{Finished}, \kwc{FinishedAFlag})) $\mid$
+
+  \kwcom{(* dead code check *)}
+  (\kwl{out}(\kwc{net}, \kwc{clientFinished}))
+).
+\end{Verbatim}
+
+\section{Initializer process}
+\begin{Verbatim}[commandchars=\\\{\}, codes={\catcode`$=3}]
+\kwl{let} \var{initializer} = 
+\kwcom{(* Generate agent names (unique) *)}
+\kwl{new} \var{C};
+\kwl{new} \var{S};
+
+\kwcom{(* Generate keypairs *)}
+\kwl{let} \var{clientKeypair} = \kwf{keypair}(\var{C}) \kwl{in}
+\kwl{let} \var{serverKeypair} = \kwf{keypair}(\var{S}) \kwl{in}
+\kwl{let} \var{issuerKeypair} = \kwf{keypair}(\var{S}) \kwl{in}
+
+\kwcom{(* Generate certificates *)}
+\kwl{let} \var{clientCert} = \kwf{cert}(\var{C}, \kwf{pk}(\var{clientKeypair})) \kwl{in}
+\kwl{let} \var{serverCert} = \kwf{cert}(\var{S}, \kwf{pk}(\var{serverKeypair})) \kwl{in}
+\kwl{let} \var{issuerCert} = \kwf{cert}(\var{S}, \kwf{pk}(\var{issuerKeypair})) \kwl{in}
+(
+  \kwcom{(* Initialize agents *)}
+  \kwl{out}(\kwc{clientInit}, (\var{C}, \var{S}, \var{clientKeypair}, \var{clientCert})) $\mid$
+  \kwl{out}(\kwc{serverInit}, (\var{S}, \var{serverKeypair}, \var{serverCert})) $\mid$
+  \kwl{out}(\kwc{initChannel}, (\var{S}, \var{issuerKeypair}, \var{issuerCert})) $\mid$  
+
+  \kwcom{(* Publish all non-secret information, otherwise we might miss}
+     \kwcom{attacks *)}
+  \kwl{out}(\kwc{net}, (\var{C}, \var{S}, \var{clientCert}, \var{serverCert}))
+).
+\end{Verbatim}
+
+\section{System}
+\begin{Verbatim}[commandchars=\\\{\}, codes={\catcode`$=3}]
+\kwl{process} !\var{initializer} $\mid$ !\var{Client} $\mid$ !\var{Server}
+\end{Verbatim}

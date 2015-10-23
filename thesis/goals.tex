@@ -1,4 +1,4 @@
-\section{Goals}
+\chapter{Goals}
 \label{sec:goals}
 This chapter focuses on the goals of the IRMA Assurer protocol. We will describe the goals that should be met by the protocol and are going to be verified by means of a protocol prover. First and foremost, the protocol should ensure the clients will be authenticated to the server and vice versa. These properties should prevent susceptibility to man-in-the-middle attacks. Furthermore both the all application data sent between client and server should be secret and trustworthy. Also the protocol should be resistant against replay attacks targeting attribute data. Finally the protocol should be designed in such a way that the connection to the server will not cause a denial of service.
 
@@ -17,7 +17,7 @@ In addition, we wish to achieve perfect forward secrecy, meaning an attacker can
 
 Note that replay attacks are partly mitigated by policies surrounding the system. For example, replaying of attribute data is only possible should an attacker have access to the assurer's tablet, which is kept in a safe and is inaccessible. To improve upon this, implementations of the protocol should ensure it does not allow or facilitate storing attribute data internally for repeated use. All attribute data should be stored on the corresponding IRMA card and securely deleted immediately after.
 
-\subsection{Attack scenarios}
+\section{Attack scenarios}
 This section describes possible attack scenarios with respect to the goals described above. These are attacks the protocol should be resistant against. The possible impact of such an attack is described directly after the attack itself.
 
 \begin{itemize}
@@ -35,13 +35,13 @@ This section describes possible attack scenarios with respect to the goals descr
   \item An attacker switches out the non-initialized IRMA cards before they reach the assurer's office. This also is a non-issue, because these cards only contain a unique ID at this point in the process. This ID is not used by the relying parties for verification of attributes and therefore has no impact on the security and privacy of the system.
 \end{itemize}
 
-\subsubsection{Perfect Forward Secrecy}
+\subsection{Perfect Forward Secrecy}
 \label{subsubsec:pfs}
-In key exchange protocols there is a property called Perfect Forward Secrecy (PFS) that provides a more secure way of encryption with respect to everyday session encryption, because the key is deleted immediately after use and therefore cannot be stolen in an attempt to decrypt intercepted traffic. More specifically, the exposure of long-term keying material, used in the protocol to negotiate session keys, does not compromise the secrecy of session keys established before the exposure. This property is especially relevant to scenarios in which exchanged session keys require secrecy protection beyond their lifetime, such as in the case of session keys used for data encryption. This means it is relevant in the IRMA Assurer protocol, since a lot of sensitive information is being transfered and therefore needs to be kept secret.
+In key exchange protocols there is a property called Perfect Forward Secrecy (PFS) that provides a more secure way of encryption with respect to everyday session encryption, because the key is deleted immediately after use and therefore cannot be stolen by an attacker or forced to be handed over by the government in an attempt to decrypt intercepted traffic~\cite{lecture2}. More specifically, the exposure of long-term keying material, used in the protocol to negotiate session keys, does not compromise the secrecy of session keys established before the exposure. This property is especially relevant to scenarios in which exchanged session keys require secrecy protection beyond their lifetime, such as in the case of session keys used for data encryption. This means it is relevant in the IRMA Assurer protocol, since a lot of sensitive information is being transfered and therefore needs to be kept secret.
 
 The most common way to achieve PFS in a key-exchange protocol is by using the Diffie-Hellman key agreement with ephemeral exponents to establish the value of a session key, while confining the use of the longterm keys (such as private signature keys) to the purpose of authenticating the exchange (see authentication). One essential element for achieving PFS with the Diffie-Hellman exchange is the use of ephemeral exponents which are erased from memory as soon as the exchange is complete. This should include the erasure of any other information from which the value of these exponents can be derived such as the state of a pseudo-random generator used to compute these exponents~\cite{PFS}.
 
-\subsection{Cryptographic properties}
+\section{Cryptographic properties}
 To summarize the previous sections, the protocol should satisfy the following cryptographic properties.
 \begin{itemize}
   \item Authenticity

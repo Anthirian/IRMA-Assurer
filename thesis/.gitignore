@@ -16,5 +16,6 @@ report.pdf
 *.synctex.gz
 *.tcp
 *.tex~
+*.tmp
 *.toc
 *.tps
