@@ -1,10 +1,11 @@
 \documentclass[11pt, letterpaper, openany]{memoir}
 \usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}
+%\usepackage[utf8]{inputenc}
+\usepackage{fontspec}
 \usepackage[pass]{geometry}
 \usepackage{graphicx}
 \usepackage{tabularx}
-\usepackage{caption}
+%\usepackage{caption}
 \usepackage{subfig}
 \usepackage{wrapfig}
 \usepackage{eso-pic}
@@ -14,7 +15,7 @@
 \usepackage{fancyvrb}
 %\usepackage[shortcuts]{extdash}
 \usepackage{verbatimbox}
-\usepackage[activate={true,nocompatibility},final,tracking=true,kerning=true,spacing=true,factor=1100,stretch=10,shrink=10]{microtype}
+%\usepackage[activate={true,nocompatibility},final,tracking=true,kerning=true,spacing=true,factor=1100,stretch=10,shrink=10]{microtype}
 \usepackage[english]{babel}
 \usepackage[hyphens]{url}
 %\usepackage{refcheck}
@@ -22,7 +23,10 @@
 
 \parskip=7pt
 \parindent=0pt
-\microtypecontext{spacing=nonfrench}
+%\microtypecontext{spacing=nonfrench}
+
+\newfontfamily\RUfontbold[]{ITCMendozaRoman LT Medium}
+\newfontfamily\RUfont[]{ITCMendozaRoman LT Book}
 
 \newcommand\CenterOnPage[1]{\AddToShipoutPicture*{\AtPageCenter{\makebox(0,0){\includegraphics[width=0.5\paperwidth]{#1}}}}}
 
@@ -31,7 +35,7 @@
 %\bfseries\abstractname\end{center}}%
 %{\vfill\null}
 
-\captionsetup{format=plain}
+%\captionsetup{format=plain}
 %\usepackage{tgcursor}
 % ProVerif model style options
 \newcommand{\kwl}[1]{\textcolor{blue}{#1}}

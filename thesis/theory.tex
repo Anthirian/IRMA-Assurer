@@ -73,7 +73,7 @@ Supplemental Access Control (SAC) was introduced by ICAO in 2009 for addressing 
 
 The PACE protocol comprises four steps:
 \begin{enumerate}
-	\item The chip randomly chooses a random number, encrypts it with a password-derived key and sends the encrypted random number to the terminal, where it is recovered.
+	\item The chip randomly chooses a random number, encrypts it with a key derived from the password and sends the encrypted random number to the terminal, where it is recovered.
   \item Both the chip and the terminal use a mapping function to map the random number to parameters for asymmetric cryptography. 
   \item The chip and the terminal perform a Diffie-Hellman protocol based on the parameters generated during step 2. 
   \item The chip and terminal derive session keys, which are confirmed by exchanging and checking the authentication tokens.
