@@ -1,21 +1,15 @@
 \chapter{Conclusion}
 \label{sec:conclusion}
+We have developed Assurer, a protocol for migrating personally identifiable information from identity documents to attribute-based credentials on IRMA cards. For this we have set several cryptographic goals and made assumptions regarding the use of the protocol. The protocol should satisfy authenticity, accountability, confidentiality, integrity and availability.
 
-\ldots
+We have set out to prove these goals hold under the assumptions made, a task for which it is required to create a model of our protocol in the Pi Calculus and subsequently verify it using the ProVerif cryptographic protocol verifier. The creation of such a model has proven to be an error-prone task, mainly due to the limited amount of available literature on the subject, but also due to memory limitations of the software used. Thankfully with the help of Jerry den Hartog, assistant professor in the security group at Eindhoven University of Technology, as well as Bruno Blanchet, head of research at the INRIA research institution, it was possible to overcome these issues. 
 
-\chapter{Future work}
+Using ProVerif we have provided proof that all of our goals, save availability, are met by the protocol. Since availability in our case constitutes only of the rule that clients must not cause an amount of traffic sufficiently high as to cause a denial of service on the server side. Unlike the other goals this is not really a cryptographic requirement, but instead more of a usability requirement, meaning we cannot use ProVerif for proof that this goal is satisfied. 
+
+\section{Future work}
 \label{sec:futurework}
+The client in this protocol performs the task of storing the ABCs received from the server on a citizen's IRMA card. While several checks are performed to ensure honesty of clients this may still be undesirable. One would probably wish for less possible interference with the ABC data. Future work on this protocol might focus on making the transaction process of ABCs more opaque to the client, who would then only serve as a non-transparent tunnel through which the data is flowing. This in turn would mean the IRMA logic has to be moved from the client to the server, undoubtedly presenting new challenges.
 
-Client moet dienen als doorgeefluik voor attributen en dus niet kunnen zien welke hij op de kaart plaatst. Hiertoe maken we een niet-transparante tunnel van server naar IRMA kaart.
+Furthermore at the time of writing the communication between IRMA card and the terminal is still being sent in the clear, i.e. without any cryptography. A valueable addition obviously would be to improve upon this area by creating a secure channel, which in fact would be a requirement for making the transaction process opaque as described above.
 
-\section{Implementation}
-Denk aan
-\begin{itemize}
-	\item Bouncy Castle voor het gebruik van TLS 1.2, of anders JSSE. JSSE zit standaard in elke Java distro. Probleem met Bouncy Castle is dat het mogelijk niet hoger kan dan TLS 1.0~\cite{sslanalysis} (hoofdstuk 4). 
-\end{itemize}
-
-I have gotten started on the implementation of this protocol in Java. The current version makes use of Netty for the communication. This appeared to be an efficient method of implementing communication between two parties. However since I was fully unfamiliar with the framework, I may not have implemented it correctly.
-
-\texttt{TODO: Uitleg waarom Netty}
-
-The implementation is not at all finished and still needs lots of work. At the time of writing the only parts that are finished is setting up an insecure communication between a client and a server, reading the data from a passport and converting it into bits for transport. Because these are only the basic elements of the protocol, one may desire to stop using Netty altogether.
+Finally one might wish to use this protocol for a software implementation. Due to the nature of IRMA and its implementations it is advisable to use Java for this. I have developed a prototype implementation of the protocol in order to get a good feel for the issues at hand. This implementation however remains unfinished, because it is now partly obsolete with the availability of IRMA's self-enrollment option via smart phones.

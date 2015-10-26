@@ -19,6 +19,7 @@
 \usepackage[english]{babel}
 \usepackage[hyphens]{url}
 %\usepackage{refcheck}
+%\usepackage{cleveref}
 \usepackage[colorlinks, linkcolor=black, urlcolor=black, citecolor=black, pdfpagemode=UseNone, pdfstartview=]{hyperref}
 
 \parskip=7pt
@@ -27,6 +28,12 @@
 
 \newfontfamily\RUfontbold[]{ITCMendozaRoman LT Medium}
 \newfontfamily\RUfont[]{ITCMendozaRoman LT Book}
+
+\definecolor{burntorange}{rgb}{0.8, 0.33, 0.0}
+\definecolor{darkcyan}{rgb}{0.0, 0.55, 0.55}
+\definecolor{darkelectricblue}{rgb}{0.33, 0.41, 0.47}
+\definecolor{darklavender}{rgb}{0.45, 0.31, 0.59}
+\definecolor{darkmagenta}{rgb}{0.55, 0.0, 0.55}
 
 \newcommand\CenterOnPage[1]{\AddToShipoutPicture*{\AtPageCenter{\makebox(0,0){\includegraphics[width=0.5\paperwidth]{#1}}}}}
 
@@ -43,7 +50,7 @@
 \newcommand{\kwc}[1]{#1}
 \newcommand{\kwcom}[1]{\textcolor{gray}{#1}}
 \newcommand{\kwp}[1]{\textsf{#1}}
-\newcommand{\kwt}[1]{\textsl{\textcolor{green}{#1}}}
+\newcommand{\kwt}[1]{\textsl{\textcolor{darkmagenta}{#1}}}
 \newcommand{\kwe}[1]{\textsf{#1}}
 \newcommand{\kwtable}[1]{\textsf{#1}}
 \newcommand{\var}[1]{#1}
@@ -52,11 +59,11 @@
 \frontmatter
 \pagestyle{empty}
 \include{titlepage}
-
+\pagestyle{plain}
 
 \begin{abstract}
 \noindent
-Selectively disclosing personal data in order to gain access to some product or service can be achieved by covering the non-relevant parts of one's identity document. However for a more secure and privacy-friendly implementation one may wish to switch to the IRMA system. This requires the person to have previously obtained an identifying set of digital characteristics in order to pass verification by a relying party. IRMA Verified Assurer is an ideal method for new adopters of IRMA technology to obtain an initial set of such Attribute Based Credentials by leveraging one's identity document, such as a passport. Due to the nature of IRMA such an initialization is required to adhere to strict cryptographic rules. In this paper we describe the theory behind IRMA and passport security. Furthermore we specify guidelines which such a protocol has to follow and we design the Assurer protocol. We prove the soundness and cryptographic security of our protocol by creating a model of it in the Pi Calculus and running the ProVerif cryptographic protocol verifier on it.
+Selectively disclosing personal data in order to gain access to some product or service can be achieved by covering the non-relevant parts of one's identity document. However the IRMA implementation is much more secure and privacy-friendly. This requires the person to have previously obtained an identifying set of digital characteristics in order to pass verification by a relying party. IRMA Verified Assurer is an ideal method for new adopters of IRMA technology to obtain an initial set of such attribute-based credentials by leveraging one's identity document, such as a passport. Due to the nature of IRMA such an initialization is required to adhere to strict cryptographic rules. In this paper we describe the theory behind IRMA and passport security. Furthermore we specify guidelines which such a protocol has to follow and we design the Assurer protocol. We prove that the protocol is cryptographically secure by translating it into a model written in the Pi Calculus and proving this model using the ProVerif cryptographic protocol verifier.
 \end{abstract}
 \clearpage
 \pagestyle{headings}
@@ -76,7 +83,7 @@ Selectively disclosing personal data in order to gain access to some product or 
 
 \backmatter
 \nocite{*}
-\bibliographystyle{plain}
+\bibliographystyle{ieeetr}
 \bibliography{references}
 
 

@@ -3,35 +3,37 @@
 %\setlength{\thickmuskip}{0mu}
 
 \section{Definitions}
-\begin{Verbatim}[commandchars=\\\{\}]
+\begin{Verbatim}[commandchars=\\\{\},codes={\catcode`$=3}]
 \kwcom{(* A public channel *)}
 \kwl{free} \kwc{net}.
 
 \kwcom{(* Message tags *)}
 \kwl{free} \kwc{ClientHello}, \kwc{ClientCertificateRequest}, \kwc{ClientCertificate}, 
-     \kwc{ClientKeyExchange}, \kwc{CertificateVerify}, \kwc{ClientChangeCipherSpec}, 
-     \kwc{ClientFinished}.
-\kwl{free} \kwc{ServerHello}, \kwc{ServerCertificate}, \kwc{ServerKeyExchange}, \kwc{ServerHelloDone}, 
-     \kwc{ServerChangeCipherSpec}, \kwc{ServerFinished}.
+     \kwc{ClientKeyExchange}, \kwc{CertificateVerify}, \kwc{ClientChangeCipher-}
+     \kwc{Spec}, \kwc{ClientFinished}.
+\kwl{free} \kwc{ServerHello}, \kwc{ServerCertificate}, \kwc{ServerKeyExchange}, \kwc{Server-}
+     \kwc{HelloDone}, \kwc{ServerChangeCipherSpec}, \kwc{ServerFinished}.
 \kwl{free} \kwc{ClientPassport}, \kwc{ActiveAuthenticationChallenge}, 
      \kwc{ActiveAuthenticationReponse}.
 
 \kwcom{(* Agent initialization is done over a private channel *)}
 \kwl{private} \kwl{free} \kwc{clientInit}, \kwc{serverInit}, \kwc{initChannel}.
 
-\kwcom{(* Initialization functions *)}
-\kwl{private} \kwl{fun} \kwf{cert}/2.     \kwcom{(* Generating certificates for agents *)}
-\kwl{private} \kwl{fun} \kwf{keypair}/1.  \kwcom{(* Generating assymmetric keypairs for agents *)}
+\kwt{(** Initialization functions **)}
+\kwcom{(* Generating certificates for agents *)}
+\kwl{private} \kwl{fun} \kwf{cert}/2.
+\kwcom{(* Generating assymmetric keypairs for agents *)}
+\kwl{private} \kwl{fun} \kwf{keypair}/1.
 
 \kwt{(** The cryptographic constructors **)}
-\kwl{fun} \kwf{hash}/1.             \kwcom{(* Hashing *)}
-\kwl{fun} \kwf{hmac}/2.             \kwcom{(* Keyed-hash message authentication code *)}
-\kwl{fun} \kwf{encrypt}/2.          \kwcom{(* Symmetric key encryption *)}
-\kwl{fun} \kwf{sign}/2.             \kwcom{(* Public key signing *)}
-\kwl{fun} \kwf{sk}/1.               \kwcom{(* Extracts secret key of a keypair *)}
-\kwl{fun} \kwf{pk}/1.               \kwcom{(* Extracts public part of a keypair *)}
+\kwl{fun} \kwf{hash}/1.         \kwcom{(* Hashing *)}
+\kwl{fun} \kwf{hmac}/2.         \kwcom{(* Keyed-hash message authentication code *)}
+\kwl{fun} \kwf{encrypt}/2.      \kwcom{(* Symmetric key encryption *)}
+\kwl{fun} \kwf{sign}/2.         \kwcom{(* Public key signing *)}
+\kwl{fun} \kwf{sk}/1.           \kwcom{(* Extracts secret key of a keypair *)}
+\kwl{fun} \kwf{pk}/1.           \kwcom{(* Extracts public part of a keypair *)}
 
-\kwcom{(* The cryptographic destructors *)}
+\kwt{(** The cryptographic destructors **)}
 \kwcom{(* symmetric key decryption *)}
 \kwl{reduc} \kwf{decrypt}(\kwf{encrypt}(\var{x}, \var{y}), \var{y}) = \var{x}.
 \kwcom{(* signature verification *)}
@@ -51,7 +53,7 @@
 \kwcom{(* Diffie-Hellman computations *)}
 \kwl{fun} \kwf{G}/0.                \kwcom{(* Generator point of the group *)}
 \kwl{fun} \kwf{sm}/2.               \kwcom{(* Scalar multiplication *)}
-\kwcom{(* Equality property: x . yG = y . xG *)}
+\kwcom{(* Equality property: x $\times$ yG = y $\times$ xG *)}
 \kwl{equation} \kwf{sm}(\var{y}, \kwf{sm}(\var{x}, \kwf{G})) = \kwf{sm}(\var{x}, \kwf{sm}(\var{y}, \kwf{G})).
 \end{Verbatim}
 
@@ -83,11 +85,9 @@
 \kwl{query} \var{attacker}{:} \kwc{MSa}.
 \kwl{query} \var{attacker}{:} \kwc{MSb}.
 
-\kwcom{(* secrecy Finished message from the client *)}
+\kwcom{(* secrecy Finished messages *)}
 \kwl{private} \kwl{free} \kwc{FinishedAFlag}.
 \kwl{query} \var{attacker}{:} \kwc{FinishedAFlag}.
-
-\kwcom{(* secrecy Finished message from the server *)}
 \kwl{private} \kwl{free} \kwc{FinishedBFlag}.
 \kwl{query} \var{attacker}{:} \kwc{FinishedBFlag}.
 
@@ -107,7 +107,7 @@
 
 \kwcom{(* ABC transaction check *)}
 \kwl{query} \var{evinj}{:} \var{endTransaction}(\var{x}, \var{y}, \var{z}) $\Longrightarrow$ \var{evinj}{:} \var{beginTrans-}
-      \var{action}(\var{x}, \var{y}, \var{z}).
+\var{action}(\var{x}, \var{y}, \var{z}).
 
 \kwcom{(* Dead code check *)}
 \kwl{private} \kwl{free} \kwc{clientFinished}.
@@ -131,14 +131,14 @@
 \kwcom{(* B retrieves the secret keys from both keypairs *)}
 \kwcom{(* Secret key used for communication *)}
 \kwl{let} \var{SKs} = \kwf{sk}(\var{serverKeypair}) \kwl{in}
-\kwcom{(* Secret key used for signing of attributes *)}
+\kwcom{(* Secret key used for signing of attributes-based credentials *)}
 \kwl{let} \var{SKi} = \kwf{sk}(\var{issuerKeypair}) \kwl{in}
 
 \kwt{(** End of initialization **)}
 
 \kwt{(** Start of TLS handshake **)}
 
-\kwt{(** Replication to model arbitrary sessions **)}
+\kwcom{(* Replication to model arbitrary sessions *)}
 !
 
 \kwcom{(* B receives ClientHello from A *)}
