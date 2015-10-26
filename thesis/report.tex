@@ -5,45 +5,30 @@
 \usepackage[pass]{geometry}
 \usepackage{graphicx}
 \usepackage{tabularx}
-%\usepackage{caption}
 \usepackage{subfig}
 \usepackage{wrapfig}
 \usepackage{eso-pic}
-%\usepackage{apacite}
-%\usepackage{minted}
-%\usepackage{listings}
 \usepackage{fancyvrb}
-%\usepackage[shortcuts]{extdash}
 \usepackage{verbatimbox}
-%\usepackage[activate={true,nocompatibility},final,tracking=true,kerning=true,spacing=true,factor=1100,stretch=10,shrink=10]{microtype}
 \usepackage[english]{babel}
-\usepackage[hyphens]{url}
-%\usepackage{refcheck}
-%\usepackage{cleveref}
+
+\PassOptionsToPackage{hyphens}{url}
+\usepackage{csquotes}
+\usepackage[backend=biber,style=numeric-comp,sorting=none,sortcites,natbib]{biblatex}
+\addbibresource{references.bib}
+
 \usepackage[colorlinks, linkcolor=black, urlcolor=black, citecolor=black, pdfpagemode=UseNone, pdfstartview=]{hyperref}
 
 \parskip=7pt
 \parindent=0pt
-%\microtypecontext{spacing=nonfrench}
 
 \newfontfamily\RUfontbold[]{ITCMendozaRoman LT Medium}
 \newfontfamily\RUfont[]{ITCMendozaRoman LT Book}
 
-\definecolor{burntorange}{rgb}{0.8, 0.33, 0.0}
-\definecolor{darkcyan}{rgb}{0.0, 0.55, 0.55}
-\definecolor{darkelectricblue}{rgb}{0.33, 0.41, 0.47}
-\definecolor{darklavender}{rgb}{0.45, 0.31, 0.59}
 \definecolor{darkmagenta}{rgb}{0.55, 0.0, 0.55}
 
 \newcommand\CenterOnPage[1]{\AddToShipoutPicture*{\AtPageCenter{\makebox(0,0){\includegraphics[width=0.5\paperwidth]{#1}}}}}
 
-%\newenvironment{abstract}%
-%{\cleardoublepage\null\vfill\begin{center}%
-%\bfseries\abstractname\end{center}}%
-%{\vfill\null}
-
-%\captionsetup{format=plain}
-%\usepackage{tgcursor}
 % ProVerif model style options
 \newcommand{\kwl}[1]{\textcolor{blue}{#1}}
 \newcommand{\kwf}[1]{#1}
@@ -82,9 +67,10 @@ Selectively disclosing personal data in order to gain access to some product or 
 \include{model}
 
 \backmatter
-\nocite{*}
-\bibliographystyle{ieeetr}
-\bibliography{references}
+%\bibliographystyle{plainnat}
+%\bibliography{references}
+
+\printbibliography
 
 
 \end{document}
