@@ -1,0 +1,151 @@
+\documentclass[hyperref={urlcolor=black, citecolor=black, pdfpagemode=UseNone, pdfpagelayout=SinglePage, pdfstartview=}]{beamer}
+%\usepackage[EU1]{fontenc}
+\usepackage{ru}
+\usepackage{lmodern}
+\usepackage{url}
+\usepackage[british]{babel}
+\usepackage{tikz}
+\usepackage{fontspec}
+%\usepackage{graphicx}
+%\usepackage{amsfonts}
+%\usepackage{wrapfig}
+%\usepackage{booktabs}
+
+\mode<presentation>
+\usetheme{Darmstadt}
+\usefonttheme[onlysmall]{structurebold}
+
+\newfontfamily\RUfontbold[]{ITCMendozaRoman LT Medium}
+\newfontfamily\RUfont[]{ITCMendozaRoman LT Book}
+
+
+\title[IRMA Verified Assurer]{IRMA Verified Assurer}
+\subtitle{Securely storing identity document chip data onto IRMA cards}
+\author[Geert Smelt]{Geert Smelt}
+\institute[Radboud University Nijmegen]{{\RUfontbold Radboud University Nijmegen}\\Kerckhoff's Institute}
+\date[2015/11/06]{November 6$^{\textnormal{th}}$, 2015}
+
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}
+  \frametitle{Outline}
+  \tableofcontents%[pausesections]
+\end{frame}
+
+\section{Introduction}
+\begin{frame}
+  \frametitle{Authentication}
+  \begin{columns}
+    \column{0.55\textwidth}    
+    \begin{itemize}
+      \item<1-> Gain access to a restricted product or service
+      \begin{itemize}
+        \item<1-> {\scriptsize No selling of alcohol or cigarettes to minors}
+        \item<1-> {\scriptsize Verification required}
+      \end{itemize}
+      \item<2-> Passport
+      \begin{itemize}
+        \item<2-> {\scriptsize Cashier learns your age}
+        \item<2-> {\scriptsize Actually, your exact date of birth}
+        \item<2-> {\scriptsize Privacy concerns}
+      \end{itemize}
+      \item<3-> IRMA
+      \begin{itemize}
+        \item<3-> {\scriptsize Attribute-Based Credentials (ABC)}
+        \item<3-> {\scriptsize ``I am at least 18 years old''}
+        \item<3-> {\scriptsize Nothing else!}
+      \end{itemize}
+    \end{itemize}
+    \column{0.45\textwidth}
+    \tikz[overlay,remember picture] 
+    \node[opacity=0.3, at=(current page.south east),anchor=south east,inner sep=0pt]{\includegraphics[height=\paperheight,width=\paperwidth]{images/UnderageAlcohol3.jpg}};
+  \end{columns}
+\end{frame}
+
+\section{Theory}
+\begin{frame}
+  \frametitle{IRMA}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Passport}
+\end{frame}
+
+\section{Goals}
+\begin{frame}
+  \frametitle{Designing the protocol}
+  \begin{itemize}
+    \item Connection should be encrypted with strong cryptography
+    \item \ldots
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Goals}
+  \begin{block}{Goals}
+    \begin{itemize}
+      \item Authenticity
+      \item Accountability
+      \item Confidentiality
+      \item Integrity
+      \item \scriptsize Availability
+    \end{itemize}
+  \end{block}
+\end{frame}
+
+\section{Protocols}
+\begin{frame}[fragile]
+  \frametitle{TLS handshake protocol}
+\scriptsize
+  \begin{semiverbatim}
+{\large Client}                                     {\large Server}
+------------                                   ------------
+ClientHello              -------->
+                                                ServerHello
+                                               Certificate*
+                                         ServerKeyExchange*                
+                                        CertificateRequest*
+                         <--------          ServerHelloDone
+Certificate*
+ClientKeyExchange
+CertificateVerify*
+[ChangeCipherSpec]
+Finished                 -------->
+                                         [ChangeCipherSpec]
+                         <--------                 Finished
+Application Data         <------->         Application Data
+\end{semiverbatim}
+\end{frame}
+
+\begin{frame}
+  \frametitle{IRMA Assurer}
+\end{frame}
+
+\section{Formalisation}
+\begin{frame}
+  \frametitle{Protocol}
+  \begin{block}{Protocol}
+    Lorem ipsum
+  \end{block}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Model}
+  \begin{example}
+    \begin{itemize}
+      \item 
+    \end{itemize}
+  \end{example}
+\end{frame}
+
+\section{Conclusion}
+\begin{frame}
+  \frametitle{Passport}
+\end{frame}
+
+\end{document}
