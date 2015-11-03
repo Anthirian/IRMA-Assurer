@@ -1,5 +1,5 @@
 # IRMA Assurer
-My dissertation on the subject of the IRMA project. Assurer is a protocol I have designed for the scenario where a new applicant for an IRMA card needs to get started by adding attributes to his or her card. The fastest way to get started is to use the person's passport data and copy it over to the newly created IRMA card. This Assurer protocol needs to be cryptographically secure if it is going to be used for identification purposes. I use [ProVerif] to prove the model to be cryptographically secure and resistant to attacks.
+My master's thesis on the subject of the IRMA project. Assurer is a protocol I have designed for the scenario where a new applicant for an IRMA card needs to get started by adding attributes to his or her card. The fastest way to get started is to use the person's passport data and copy it over to the newly created IRMA card. This Assurer protocol needs to be cryptographically secure if it is going to be used for identification purposes. I use [ProVerif] to prove the model to be cryptographically secure and resistant to attacks.
 
 ## About IRMA
 <img align="right" src="https://www.irmacard.org/wp-content/uploads/2012/12/IRMA_in_nexus7-150x150.png" />
